@@ -1,5 +1,5 @@
-#ifndef SBPL_VOXELIZER_H
-#define SBPL_VOXELIZER_H
+#ifndef SBPL_GEOMETRY_UTILS_VOXELIZER_H
+#define SBPL_GEOMETRY_UTILS_VOXELIZER_H
 
 #include <vector>
 #include <geometry_msgs/Pose.h>

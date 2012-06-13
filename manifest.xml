@@ -10,8 +10,6 @@
   <url>http://ros.org/wiki/sbpl_geometry_utils</url>
   <rosdep name="eigen3"/>
   <depend package="geometry_msgs"/>
-  <!-- <depend package="eigen"/> -->
-
 </package>
 
 

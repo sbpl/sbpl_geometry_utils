@@ -1,5 +1,5 @@
-#ifndef SBPL_SPHERE_ENCLOSER_H
-#define SBPL_SPHERE_ENCLOSER_H
+#ifndef SBPL_GEOMETRY_UTILS_SPHERE_ENCLOSER_H
+#define SBPL_GEOMETRY_UTILS_SPHERE_ENCLOSER_H
 
 #include <vector>
 #include <sbpl_geometry_utils/Sphere.h>

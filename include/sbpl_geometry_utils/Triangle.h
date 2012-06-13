@@ -1,5 +1,5 @@
-#ifndef SBPL_TRIANGLE_H
-#define SBPL_TRIANGLE_H
+#ifndef SBPL_GEOMETRY_UTILS_TRIANGLE_H
+#define SBPL_GEOMETRY_UTILS_TRIANGLE_H
 
 #include <geometry_msgs/Point.h>
 

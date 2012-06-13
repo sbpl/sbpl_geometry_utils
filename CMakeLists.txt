@@ -31,4 +31,5 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 rosbuild_add_library(${PROJECT_NAME}
                      src/Voxelizer.cpp
                      src/SphereEncloser.cpp
-                     src/Interpolator.cpp)
+                     src/Interpolator.cpp
+                     src/PathSimilarityMeasurer.cpp)

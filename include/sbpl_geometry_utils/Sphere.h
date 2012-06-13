@@ -1,5 +1,5 @@
-#ifndef SBPL_SPHERE_H
-#define SBPL_SPHERE_H
+#ifndef SBPL_GEOMETRY_UTILS_SPHERE_H
+#define SBPL_GEOMETRY_UTILS_SPHERE_H
 
 #include <geometry_msgs/Point.h>
 
