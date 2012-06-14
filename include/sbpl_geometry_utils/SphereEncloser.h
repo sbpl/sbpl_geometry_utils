@@ -2,9 +2,10 @@
 #define SBPL_GEOMETRY_UTILS_SPHERE_ENCLOSER_H
 
 #include <vector>
+#include <Eigen/Dense>
+#include <geometry_msgs/Pose.h>
 #include <sbpl_geometry_utils/Sphere.h>
 #include <sbpl_geometry_utils/Triangle.h>
-#include <geometry_msgs/Pose.h>
 
 namespace sbpl
 {

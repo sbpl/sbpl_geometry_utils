@@ -16,6 +16,9 @@ public:
     ~PathSimilarityMeasurer();
 
     /**
+     * @brief Computes the similarity of two paths as the sum of variances between sets of corresponding waypoints along
+     *        a set of given paths
+     *
      * @param[in] trajectories A non-empty set of non-NULL pointers to trajectories that you wish to
      *                         compare for similarity
      * @param[in] numWaypoints the number of corresponding waypoints along each path that are used for
@@ -26,6 +29,11 @@ public:
      *         waypoints along all given paths
      */
     static double measure(const std::vector<const Trajectory*>& trajectories, int numWaypoints);
+
+    /**
+     * @brief Computes the similarity of two paths using dynamic time warping on waypoints along the paths
+     */
+    static double measureDTW(const std::vector<const Trajectory*>& trajectories, int numWaypoints);
 
 private:
     PathSimilarityMeasurer();

@@ -32,4 +32,7 @@ rosbuild_add_library(${PROJECT_NAME}
                      src/Voxelizer.cpp
                      src/SphereEncloser.cpp
                      src/Interpolator.cpp
-                     src/PathSimilarityMeasurer.cpp)
+                     src/PathSimilarityMeasurer.cpp
+                     src/Triangle.cpp
+                     src/Sphere.cpp)
+

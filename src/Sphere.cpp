@@ -9,7 +9,7 @@ Sphere::Sphere() :
 {
 }
 
-Sphere::Sphere(const Point3D& center, double radius) :
+Sphere::Sphere(const geometry_msgs::Point& center, double radius) :
     center(center),
     radius(radius)
 {
