@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <sbpl_geometry_utils/Sphere.h>
+#include <sbpl_geometry_utils/Triangle.h>
 #include <geometry_msgs/Pose.h>
 
 namespace sbpl
@@ -203,8 +204,16 @@ public:
 private:
     SphereEncloser();
 
-    bool getAxisAlignedBoundingBox(const std::vector<geometry_msgs::Point>& vertices, double& minX, double& minY,
-                                   double& minZ, double& maxX, double& maxY, double& maxZ);
+    static bool getAxisAlignedBoundingBox(const std::vector<geometry_msgs::Point>& vertices, double& minX,
+                                          double& minY, double& minZ, double& maxX, double& maxY,
+                                          double& maxZ);
+    static void createCubeMesh(double x, double y, double z, double length, std::vector<Triangle>& trianglesOut);
+    static bool isInDiscreteBoundingBox(int i, int j, int k, int minx, int miny, int minz,
+                                        int maxx, int maxy, int maxz);
+    static bool intersects(const Triangle& tr1, const Triangle& tr2, double eps = 1.0e-4);
+    static Eigen::Vector3d cross(const Eigen::Vector3d& a, const Eigen::Vector3d& b);
+    static bool pointOnTriangle(const Eigen::Vector3d& point, const Eigen::Vector3d& vertex1,
+                                const Eigen::Vector3d& vertex2, const Eigen::Vector3d& vertex3);
 };
 
 }

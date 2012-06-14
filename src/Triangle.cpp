@@ -10,7 +10,7 @@ Triangle::Triangle() :
 {
 }
 
-Triangle::Triangle(const Point3D& p1, const Point3D& p2, const Point3D& p3) :
+Triangle::Triangle(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, const geometry_msgs::Point& p3) :
     p1(p1),
     p2(p2),
     p3(p3)

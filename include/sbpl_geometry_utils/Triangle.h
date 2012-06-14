@@ -5,6 +5,7 @@
 
 namespace sbpl
 {
+
 class Triangle
 {
 public:
@@ -13,9 +14,10 @@ public:
     geometry_msgs::Point p3;
 
     Triangle();
-    Triangle(const Point3D& p1, const Point3D& p2, const Point3D& p3);
+    Triangle(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, const geometry_msgs::Point& p3);
     ~Triangle();
 };
+
 }
 
 #endif
