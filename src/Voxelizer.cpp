@@ -18,7 +18,14 @@ void Voxelizer::voxelizeBox(double xSize, double ySize, double zSize, const geom
 
 void Voxelizer::voxelizeSphere(double radius, double voxelSize, std::vector<std::vector<double> >& voxels)
 {
-    return; // TODO
+    // TODO: make numLongitude and numLatitude lines configurable or parameters
+    std::vector<double> sphere(3, 0.0);
+    sphere.push_back(radius);
+    std::vector<geometry_msgs::Point> vertices;
+    std::vector<int> triangles;
+    createSphereMesh(sphere, 7, 8, vertices, triangles);
+    voxelizeMesh(vertices, triangles, voxelSize, voxels, true);
+    return;
 }
 
 void Voxelizer::voxelizeSphere(double radius, const geometry_msgs::Pose& pose, double voxelSize,
@@ -232,7 +239,7 @@ void Voxelizer::voxelizeSphereList(const std::vector<std::vector<double> >& sphe
         // create a sphere mesh
         std::vector<geometry_msgs::Point> sphereVertices;
         std::vector<int> sphereTriangles;
-        createSphereMesh(spheres[i], 8, 7, sphereVertices, sphereTriangles);
+        createSphereMesh(spheres[i], 7, 8, sphereVertices, sphereTriangles);
 
         // voxelize the sphere
         std::vector<std::vector<double> > voxels;

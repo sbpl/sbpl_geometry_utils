@@ -44,7 +44,8 @@ void SphereEncloser::encloseBox(double xSize, double ySize, double zSize, double
 void SphereEncloser::encloseBox(double xSize, double ySize, double zSize, const geometry_msgs::Pose& pose,
                                 double radius, std::vector<std::vector<double> >& spheres)
 {
-    return; // TODO
+    // TODO: transform to be centered at 0,0,0 and axis-aligned; enclose; transform back
+    return;
 }
 
 void SphereEncloser::encloseCylinder(double cylinderRadius, double length, double radius,
