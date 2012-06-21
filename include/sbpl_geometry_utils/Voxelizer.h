@@ -1,8 +1,10 @@
 #ifndef SBPL_GEOMETRY_UTILS_VOXELIZER_H
 #define SBPL_GEOMETRY_UTILS_VOXELIZER_H
 
+#include <Eigen/Dense>
 #include <vector>
 #include <geometry_msgs/Pose.h>
+#include <sbpl_geometry_utils/Triangle.h>
 
 namespace sbpl
 {
@@ -128,7 +130,7 @@ public:
      * @param[in] triangles The triangles of the mesh as a list of indices into the vertex array
      * @param[in] pose The position and rotation of the mesh
      * @param[in] voxelSize The desired length of the generated voxels
-     * @param[out] voxels The vector in which to store the spheres; any previous data is overwritten; each element of
+     * @param[out] voxels The vector in which to store the voxels; any previous data is overwritten; each element of
      *                    this vector is a vector of doubles with the first three elements as the sphere's x,y,z
      *                    position and the fourth element as the radius of the sphere
      * @param[in] fillMesh Whether to fill the interior of the mesh with spheres
@@ -139,8 +141,33 @@ public:
                              const geometry_msgs::Pose& pose, double voxelSize,
                              std::vector<std::vector<double> >& voxels, bool fillMesh = false, int maxSpheres = 0);
 
+	/**
+	 * @brief Encloses a list of spheres with a set of voxels of a given size
+	 *
+	 * Encloses a list of spheres with a set of voxels of a given size. The generated voxels appear in the frame the
+	 * spheres are described in.
+	 *
+	 * @param[in] spheres
+	 * @param[in] res
+	 * @param[in] removeDuplicates
+	 * @param[out] voxels              The vector in which to store the voxels
+	 * @param[out] volume              The combined volume of all the spheres
+	 */
+	static void voxelizeSphereList(const std::vector<std::vector<double> >& spheres, double res, bool removeDuplicates,
+	                               std::vector<std::vector<double> >& voxels, double& volume);
 private:
 	Voxelizer();
+
+	static void createSphereMesh(const std::vector<double>& sphere, int numLongitudes, int numLatitudes,
+                                 std::vector<geometry_msgs::Point>& vertices, std::vector<int>& triangles);
+	static bool getAxisAlignedBoundingBox(const std::vector<geometry_msgs::Point>& vertices, double& minX,
+                                          double& minY, double& minZ, double& maxX, double& maxY, double& maxZ);
+	static void createCubeMesh(double x, double y, double z, double length, std::vector<Triangle>& trianglesOut);
+    static bool isInDiscreteBoundingBox(int i, int j, int k, int minx, int miny, int minz,
+                                        int maxx, int maxy, int maxz);
+    static bool intersects(const Triangle& tr1, const Triangle& tr2, double eps = 1.0e-4);
+    static bool pointOnTriangle(const Eigen::Vector3d& point, const Eigen::Vector3d& vertex1,
+                                const Eigen::Vector3d& vertex2, const Eigen::Vector3d& vertex3);
 };
 
 }

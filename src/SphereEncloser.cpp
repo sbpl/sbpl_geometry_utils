@@ -466,6 +466,11 @@ void SphereEncloser::createCubeMesh(double x, double y, double z, double length,
     trianglesOut.push_back(temp);
 }
 
+void SphereEncloser::createVoxelMesh(std::vector<Triangle>& triangles, std::vector<int>& indices)
+{
+
+}
+
 bool SphereEncloser::isInDiscreteBoundingBox(int i, int j, int k, int minx, int miny, int minz,
                                              int maxx, int maxy, int maxz)
 {

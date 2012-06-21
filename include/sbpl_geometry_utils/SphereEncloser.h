@@ -209,10 +209,10 @@ private:
                                           double& minY, double& minZ, double& maxX, double& maxY,
                                           double& maxZ);
     static void createCubeMesh(double x, double y, double z, double length, std::vector<Triangle>& trianglesOut);
+    static void createVoxelMesh(std::vector<Triangle>& trangles, std::vector<int>& indices);
     static bool isInDiscreteBoundingBox(int i, int j, int k, int minx, int miny, int minz,
                                         int maxx, int maxy, int maxz);
     static bool intersects(const Triangle& tr1, const Triangle& tr2, double eps = 1.0e-4);
-    static Eigen::Vector3d cross(const Eigen::Vector3d& a, const Eigen::Vector3d& b);
     static bool pointOnTriangle(const Eigen::Vector3d& point, const Eigen::Vector3d& vertex1,
                                 const Eigen::Vector3d& vertex2, const Eigen::Vector3d& vertex3);
 };
