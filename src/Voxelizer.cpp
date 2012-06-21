@@ -42,6 +42,11 @@ void Voxelizer::voxelizeCylinder(double cylinderRadius, double length, const geo
 void Voxelizer::voxelizeMesh(const std::vector<geometry_msgs::Point>& vertices, const std::vector<int>& triangles,
                              double voxelSize, std::vector<std::vector<double> >& voxels, bool fillMesh, int maxVoxels)
 {
+    if ((int)triangles.size() % 3 != 0) {
+        ROS_ERROR("Mesh triangle list is not well-formed. Triangle list size should be a multiple of three.");
+        return;
+    }
+
     double voxelLength = voxelSize;
 
     voxels.clear();
@@ -78,7 +83,7 @@ void Voxelizer::voxelizeMesh(const std::vector<geometry_msgs::Point>& vertices, 
 
     int numVoxelsFilled = 0;
 
-    // create a mesh for the voxel grid surrounding the mesh
+    // create a triangle mesh for the voxel grid surrounding the mesh (TODO: extremely bad on memory; wtb index lists)
     std::vector<Triangle> entireVoxelMesh;
     for (int i = 0; i < numVoxelsX; i++) {
         for (int j = 0; j < numVoxelsY; j++) {
@@ -95,11 +100,6 @@ void Voxelizer::voxelizeMesh(const std::vector<geometry_msgs::Point>& vertices, 
                 }
             }
         }
-    }
-
-    if ((int)triangles.size() % 3 != 0) {
-        ROS_ERROR("Mesh triangle list is not well-formed. Triangle list size should be a multiple of three.");
-        return;
     }
 
     // for every triangle
@@ -193,6 +193,24 @@ void Voxelizer::voxelizeMesh(const std::vector<geometry_msgs::Point>& vertices, 
             }
         }
     }
+
+    // push back all the filled voxels
+    for (int i = 0; i < numVoxelsX; i++) {
+        for (int j = 0; j < numVoxelsY; j++) {
+            for (int k = 0; k < numVoxelsZ; k++) {
+                if (voxelGrid[i][j][k]) {
+                    double centerX = (i + minVoxelX) * voxelLength + 0.5 * voxelLength;
+                    double centerY = (j + minVoxelY) * voxelLength + 0.5 * voxelLength;
+                    double centerZ = (k + minVoxelZ) * voxelLength + 0.5 * voxelLength;
+                    std::vector<double> voxelPos;
+                    voxelPos.push_back(centerX);
+                    voxelPos.push_back(centerY);
+                    voxelPos.push_back(centerZ);
+                    voxels.push_back(voxelPos);
+                }
+            }
+        }
+    }
 }
 
 void Voxelizer::voxelizeMesh(const std::vector<geometry_msgs::Point>& vertices, const std::vector<int>& triangles,
@@ -250,6 +268,11 @@ void Voxelizer::voxelizeSphereList(const std::vector<std::vector<double> >& sphe
     }
 
     return;
+}
+
+void Voxelizer::createVoxelMesh(std::vector<Triangle>& triangles, std::vector<int>& indices)
+{
+
 }
 
 void Voxelizer::createSphereMesh(const std::vector<double>& sphere, int numLongitudes, int numLatitudes,
