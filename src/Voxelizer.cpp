@@ -232,38 +232,37 @@ void Voxelizer::voxelizeSphereList(const std::vector<std::vector<double> >& sphe
 {
     voxels.clear();
 
-    std::vector<std::vector<double> > allVoxels;
-
     // for each sphere
     for (int i = 0; i < (int)spheres.size(); i++) {
         // create a sphere mesh
         std::vector<geometry_msgs::Point> sphereVertices;
         std::vector<int> sphereTriangles;
-        createSphereMesh(spheres[i], 7, 8, sphereVertices, sphereTriangles);
+        createSphereMesh(spheres[i], 9, 10, sphereVertices, sphereTriangles);
 
         // voxelize the sphere
-        std::vector<std::vector<double> > voxels;
-        voxelizeMesh(sphereVertices, sphereTriangles, res, voxels, true);
+        std::vector<std::vector<double> > meshVoxels;
+        voxelizeMesh(sphereVertices, sphereTriangles, res, meshVoxels, true);
 
         // add it to the list of voxels
-        for (int j = 0; j < (int)voxels.size(); j++) {
-            allVoxels.push_back(voxels[i]);
+        for (int j = 0; j < (int)meshVoxels.size(); j++) {
+            voxels.push_back(meshVoxels[j]);
         }
     }
 
-    int duplicateIdx = (int)allVoxels.size();
+    int duplicateIdx = (int)voxels.size();
     for (int i = 0; i < duplicateIdx; i++) {
         for (int j = i + 1; j < duplicateIdx; j++) {
-            double dx = allVoxels[i][0] - allVoxels[j][0];
-            double dy = allVoxels[i][1] - allVoxels[j][1];
-            double dz = allVoxels[i][2] - allVoxels[j][2];
+            double dx = voxels[i][0] - voxels[j][0];
+            double dy = voxels[i][1] - voxels[j][1];
+            double dz = voxels[i][2] - voxels[j][2];
 
             // since all voxels are aligned on the same grid, if the distance is greater than half the resolution, it
-            // has to be the same voxel
-            if (dx * dx + dy * dy + dz * dz > res * res) {
-                std::vector<double> temp = allVoxels[duplicateIdx - 1];
-                allVoxels[duplicateIdx - 1] = allVoxels[j];
-                allVoxels[j] = temp;
+            // has to be the same voxel (really if distance is just less than the resolution)
+            if (dx * dx + dy * dy + dz * dz < res * res / 4.0) {
+                std::vector<double> temp = voxels[duplicateIdx - 1];
+                voxels[duplicateIdx - 1] = voxels[j];
+                voxels[j] = temp;
+                duplicateIdx--;
             }
         }
     }
@@ -271,10 +270,8 @@ void Voxelizer::voxelizeSphereList(const std::vector<std::vector<double> >& sphe
     volume = duplicateIdx * res * res * res;
 
     if (removeDuplicates) {
-        allVoxels.resize(duplicateIdx);
+        voxels.resize(duplicateIdx);
     }
-
-    return;
 }
 
 void Voxelizer::createVoxelMesh(std::vector<Triangle>& triangles, std::vector<int>& indices)
@@ -336,22 +333,27 @@ void Voxelizer::createSphereMesh(const std::vector<double>& sphere, int numLongi
         // add in top triangle
         triangles.push_back(0);
         triangles.push_back(i + 1);
-        triangles.push_back(i + 2);
+        if (i == numLatitudes - 1) {
+            triangles.push_back(1);
+        }
+        else {
+            triangles.push_back(i + 2);
+        }
     }
 
-    for (int i = 0; i < numLongitudes; i++) {
+    for (int i = 0; i < numLongitudes - 1; i++) {
         for (int j = 0; j < numLatitudes; j++) {
             // i, j corresponds to one of the generated vertices
-            int baseVertexIdx = (i + 1) * numLatitudes + j;
+            int baseVertexIdx = i * numLatitudes + j + 1;
             int bBaseVertexIdx = baseVertexIdx + numLatitudes;
-            int brBaseVertexIdx = bBaseVertexIdx + numLatitudes;
+            int brBaseVertexIdx = bBaseVertexIdx + 1;
             int rBaseVertexIdx = baseVertexIdx + 1;
 
-            if (brBaseVertexIdx/numLongitudes != bBaseVertexIdx/numLongitudes) {
+            if ((brBaseVertexIdx - 1)/numLatitudes != (bBaseVertexIdx - 1)/numLatitudes) {
                 brBaseVertexIdx -= numLatitudes;
             }
 
-            if (rBaseVertexIdx/numLongitudes != baseVertexIdx/numLongitudes) {
+            if ((rBaseVertexIdx - 1)/numLatitudes != (baseVertexIdx - 1)/numLatitudes) {
                 rBaseVertexIdx -= numLatitudes;
             }
 
@@ -368,7 +370,12 @@ void Voxelizer::createSphereMesh(const std::vector<double>& sphere, int numLongi
     for (int i = 0; i < numLatitudes; i++) {
         // add in bottom triangle
         triangles.push_back(vertices.size() - 1);
-        triangles.push_back(vertices.size() - 1 - i);
+        if (i == 0) {
+            triangles.push_back(vertices.size() - 1 - numLatitudes);
+        }
+        else {
+            triangles.push_back(vertices.size() - 1 - i);
+        }
         triangles.push_back(vertices.size() - 1 - (i + 1));
     }
 

@@ -28,6 +28,12 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #rosbuild_link_boost(${PROJECT_NAME} thread)
 #rosbuild_add_executable(example examples/example.cpp)
 #target_link_libraries(example ${PROJECT_NAME})
+
+macro(build_test test_name test_source)
+    rosbuild_add_executable(${test_name} src/test/${test_source})
+    target_link_libraries(${test_name} sbpl_geometry_utils)
+endmacro()
+
 rosbuild_add_library(${PROJECT_NAME}
                      src/Voxelizer.cpp
                      src/SphereEncloser.cpp
@@ -35,4 +41,6 @@ rosbuild_add_library(${PROJECT_NAME}
                      src/PathSimilarityMeasurer.cpp
                      src/Triangle.cpp
                      src/Sphere.cpp)
+
+build_test(voxelize_sphere_list_test VoxelizeSphereListTest.cpp)
 
