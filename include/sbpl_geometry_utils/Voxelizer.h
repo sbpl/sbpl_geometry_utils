@@ -158,7 +158,8 @@ public:
 private:
 	Voxelizer();
 
-	static void createVoxelMesh(std::vector<Triangle>& triangles, std::vector<int>& indices);
+	static void createVoxelMesh(double res, const std::vector<int>& minVoxel, const std::vector<int>& maxVoxel,
+	                            std::vector<geometry_msgs::Point>& vertices, std::vector<int>& indices);
 	static void createSphereMesh(const std::vector<double>& sphere, int numLongitudes, int numLatitudes,
                                  std::vector<geometry_msgs::Point>& vertices, std::vector<int>& triangles);
 	static bool getAxisAlignedBoundingBox(const std::vector<geometry_msgs::Point>& vertices, double& minX,
