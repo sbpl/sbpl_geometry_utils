@@ -328,9 +328,9 @@ void Voxelizer::createVoxelMesh(double res, const std::vector<int>& minVoxel, co
         for (int j = 0; j < numVoxelsY + 1; j++) {
             for (int k = 0; k < numVoxelsZ + 1; k++) {
                 geometry_msgs::Point p;
-                p.x = i + minVoxel[0] * res;
-                p.y = j + minVoxel[1] * res;
-                p.z = k + minVoxel[2] * res;
+                p.x = (i + minVoxel[0]) * res;
+                p.y = (j + minVoxel[1]) * res;
+                p.z = (k + minVoxel[2]) * res;
                 vertices.push_back(p);
             }
         }
