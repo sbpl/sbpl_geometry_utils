@@ -274,6 +274,116 @@ void Voxelizer::voxelizeSphereList(const std::vector<std::vector<double> >& sphe
     }
 }
 
+void Voxelizer::voxelizeSphereListQAD(const std::vector<std::vector<double> >& spheres, double res, bool removeDuplicates,
+    std::vector<std::vector<double> >& voxels, double& volume)
+{
+  voxels.clear();
+
+  //find the bounds of the voxel grid
+  double minXc = 1000000000.0;
+  double maxXc = -1000000000.0;
+  double minYc = 1000000000.0;
+  double maxYc = -1000000000.0;
+  double minZc = 1000000000.0;
+  double maxZc = -1000000000.0;
+  for(unsigned int i=0; i<spheres.size(); i++){
+    double x = spheres[i][0];
+    double y = spheres[i][1];
+    double z = spheres[i][2];
+    double r = spheres[i][3];
+    if(x-r<minXc)
+      minXc = x-r;
+    if(y-r<minYc)
+      minYc = y-r;
+    if(z-r<minZc)
+      minZc = z-r;
+    if(x+r>maxXc)
+      maxXc = x+r;
+    if(y+r>maxYc)
+      maxYc = y+r;
+    if(z+r>maxZc)
+      maxZc = z+r;
+  }
+
+  int sx = (maxXc - minXc)/res + 1;
+  int sy = (maxYc - minYc)/res + 1;
+  int sz = (maxZc - minZc)/res + 1;
+
+  //create the voxel grid
+  int*** grid = new int**[sx];
+  for(int x=0; x<sx; x++){
+    grid[x] = new int*[sy];
+    for(int y=0; y<sy; y++){
+      grid[x][y] = new int[sz];
+      for(int z=0; z<sz; z++)
+        grid[x][y][z] = 0;
+    }
+  }
+
+  //for each of the spheres
+  for(unsigned int i=0; i<spheres.size(); i++){
+    double r = spheres[i][3];
+    double r2 = r*r;
+    //increment each cell which is in the sphere
+    for(double x=-r; x<r+res; x+=res){
+      for(double y=-r; y<r+res; y+=res){
+        for(double z=-r; z<r+res; z+=res){
+          double d=x*x+y*y+z*z;
+          if(d<=r2){
+            int ix = (spheres[i][0]-x-minXc)/res;
+            int iy = (spheres[i][1]-y-minYc)/res;
+            int iz = (spheres[i][2]-z-minZc)/res;
+            grid[ix][iy][iz]++;
+          }
+        }
+      }
+    }
+  }
+
+  //run through the voxel grid and sum the volume
+  std::vector<double> p(3,0);
+  volume = 0;
+  double cellVolume = res*res*res;
+  if(removeDuplicates){
+    for(int x=0; x<sx; x++){
+      for(int y=0; y<sy; y++){
+        for(int z=0; z<sz; z++){
+          if(grid[x][y][z]){
+            volume += cellVolume;
+            p[0] = x*res + minXc;
+            p[1] = y*res + minYc;
+            p[2] = z*res + minZc;
+            voxels.push_back(p);
+          }
+        }
+      }
+    }
+  }
+  else{
+    for(int x=0; x<sx; x++){
+      for(int y=0; y<sy; y++){
+        for(int z=0; z<sz; z++){
+          for(int i=0; i<grid[x][y][z]; i++){
+            volume += cellVolume;
+            p[0] = x*res + minXc;
+            p[1] = y*res + minYc;
+            p[2] = z*res + minZc;
+            voxels.push_back(p);
+          }
+        }
+      }
+    }
+  }
+
+  //delete the voxel grid
+  for(int x=0; x<sx; x++){
+    for(int y=0; y<sy; y++)
+      delete[] grid[x][y];
+    delete[] grid[x];
+  }
+  delete[] grid;
+}
+
 void Voxelizer::createVoxelMesh(std::vector<Triangle>& triangles, std::vector<int>& indices)
 {
 
