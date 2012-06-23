@@ -1,5 +1,8 @@
+#include <iostream>
 #include <cmath>
 #include <sbpl_geometry_utils/Voxelizer.h>
+
+#define USING_LOW_MEM_VOXEL_MESH 1
 
 namespace sbpl
 {
@@ -91,6 +94,7 @@ void Voxelizer::voxelizeMesh(const std::vector<geometry_msgs::Point>& vertices, 
     int numVoxelsFilled = 0;
 
     // create a triangle mesh for the voxel grid surrounding the mesh (TODO: extremely bad on memory; wtb index lists)
+#if !USING_LOW_MEM_VOXEL_MESH
     std::vector<Triangle> entireVoxelMesh;
     for (int i = 0; i < numVoxelsX; i++) {
         for (int j = 0; j < numVoxelsY; j++) {
@@ -108,6 +112,20 @@ void Voxelizer::voxelizeMesh(const std::vector<geometry_msgs::Point>& vertices, 
             }
         }
     }
+    std::cout << "Using " << entireVoxelMesh.size() * sizeof(Triangle) << " bytes for voxel mesh" << std::endl;
+#else
+    // ANDREW: new method
+    std::vector<int> minVoxel, maxVoxel;
+    minVoxel.push_back(minVoxelX); maxVoxel.push_back(maxVoxelX);
+    minVoxel.push_back(minVoxelY); maxVoxel.push_back(maxVoxelY);
+    minVoxel.push_back(minVoxelZ); maxVoxel.push_back(maxVoxelZ);
+
+    std::vector<geometry_msgs::Point> vMeshVertices;
+    std::vector<int> vMeshIndices;
+    createVoxelMesh(voxelLength, minVoxel, maxVoxel, vMeshVertices, vMeshIndices);
+    std::cout << "Using " << vMeshIndices.size() * sizeof(int) + vMeshVertices.size() * sizeof(geometry_msgs::Point) <<
+                 " bytes for voxel mesh" << std::endl;
+#endif
 
     // for every triangle
     for (int triangleIdx = 0; triangleIdx < (int)triangles.size(); triangleIdx += 3) {
@@ -146,15 +164,30 @@ void Voxelizer::voxelizeMesh(const std::vector<geometry_msgs::Point>& vertices, 
         int triMaxVoxelZ = floor(triMaxZ / voxelLength) - minVoxelZ;
 
         // for every voxel in the voxel mesh i've constructed
+#if !USING_LOW_MEM_VOXEL_MESH
         for (unsigned a = 0; a < entireVoxelMesh.size(); a++) {
             int voxelNum = a / 12; // there are 12 mesh triangles per voxel
+#else
+        for (unsigned a = 0; a < vMeshIndices.size(); a+=3) {
+            int voxelNum = a / (12 * 3); // there are 12 mesh triangles per voxel
+#endif
             int i = (voxelNum / (numVoxelsZ * numVoxelsY)) % numVoxelsX;
             int j = (voxelNum / numVoxelsZ) % numVoxelsY;
             int k = voxelNum % numVoxelsZ;
             // if not already filled, is in the bounding voxel grid of the triangle, and this voxel mesh
             // triangle intersects the current triangle, fill in the voxel
+
+#if !USING_LOW_MEM_VOXEL_MESH
             if (!voxelGrid[i][j][k] && isInDiscreteBoundingBox(i, j, k, triMinVoxelX, triMinVoxelY, triMinVoxelZ,
                     triMaxVoxelX, triMaxVoxelY, triMaxVoxelZ) && intersects(triangle, entireVoxelMesh[a])) {
+#else
+            Triangle t;
+            t.p1 = vMeshVertices[vMeshIndices[a + 0]];
+            t.p1 = vMeshVertices[vMeshIndices[a + 1]];
+            t.p1 = vMeshVertices[vMeshIndices[a + 2]];
+            if (!voxelGrid[i][j][k] && isInDiscreteBoundingBox(i, j, k, triMinVoxelX, triMinVoxelY, triMinVoxelZ,
+                                triMaxVoxelX, triMaxVoxelY, triMaxVoxelZ) && intersects(triangle, t)) {
+#endif
                 voxelGrid[i][j][k] = true;
                 numVoxelsFilled++;
             }
@@ -384,9 +417,104 @@ void Voxelizer::voxelizeSphereListQAD(const std::vector<std::vector<double> >& s
   delete[] grid;
 }
 
-void Voxelizer::createVoxelMesh(std::vector<Triangle>& triangles, std::vector<int>& indices)
+void Voxelizer::createVoxelMesh(double res, const std::vector<int>& minVoxel, const std::vector<int>& maxVoxel,
+                                std::vector<geometry_msgs::Point>& vertices, std::vector<int>& indices)
 {
+    // TODO: optimize by removing duplicate triangles (hopefully by never generating them in the first
+    // place; this will then have to be propogated to calling code to be able to know the voxels that
+    // correspond to a given triangle
 
+    assert(minVoxel.size() >= 3 && maxVoxel.size() >= 3);
+
+    vertices.clear();
+    indices.clear();
+
+    int numVoxelsX = maxVoxel[0] - minVoxel[0] + 1;
+    int numVoxelsY = maxVoxel[1] - minVoxel[1] + 1;
+    int numVoxelsZ = maxVoxel[2] - minVoxel[2] + 1;
+
+    // create all the vertices
+    for (int i = 0; i < numVoxelsX + 1; i++) {
+        for (int j = 0; j < numVoxelsY + 1; j++) {
+            for (int k = 0; k < numVoxelsZ + 1; k++) {
+                geometry_msgs::Point p;
+                p.x = (i + minVoxel[0]) * res;
+                p.y = (j + minVoxel[1]) * res;
+                p.z = (k + minVoxel[2]) * res;
+                vertices.push_back(p);
+            }
+        }
+    }
+
+    // for every voxel there are 12 triangles
+    for (int i = 0; i < numVoxelsX; i++) {
+        for (int j = 0; j < numVoxelsY; j++) {
+            for (int k = 0; k < numVoxelsZ; k++) {
+                int lbfIdx = numVoxelsY * numVoxelsZ * i + numVoxelsZ * j + k;
+                int lbnIdx = lbfIdx + 1;
+                int ltfIdx = lbfIdx + numVoxelsZ + 1;
+                int ltnIdx = ltfIdx + 1;
+                int rbfIdx = lbfIdx + (numVoxelsZ + 1) * (numVoxelsY + 1);
+                int rbnIdx = rbfIdx + 1;
+                int rtfIdx = rbfIdx + numVoxelsZ + 1;
+                int rtnIdx = rtfIdx + 1;
+
+                // two triangles on the right face
+                indices.push_back(rtnIdx);
+                indices.push_back(rbnIdx);
+                indices.push_back(rtfIdx);
+
+                indices.push_back(rtfIdx);
+                indices.push_back(rbnIdx);
+                indices.push_back(rbfIdx);
+
+                // two triangles on the front face
+                indices.push_back(ltnIdx);
+                indices.push_back(lbnIdx);
+                indices.push_back(rtnIdx);
+
+                indices.push_back(rtnIdx);
+                indices.push_back(lbnIdx);
+                indices.push_back(rbnIdx);
+
+                // two triangles on the top face
+                indices.push_back(ltfIdx);
+                indices.push_back(ltnIdx);
+                indices.push_back(rtfIdx);
+
+                indices.push_back(rtfIdx);
+                indices.push_back(ltnIdx);
+                indices.push_back(rtnIdx);
+
+                // two triangles on the left face
+                indices.push_back(ltnIdx);
+                indices.push_back(ltfIdx);
+                indices.push_back(lbfIdx);
+
+                indices.push_back(ltnIdx);
+                indices.push_back(lbfIdx);
+                indices.push_back(lbnIdx);
+
+                // two triangles on the back face
+                indices.push_back(ltfIdx);
+                indices.push_back(rbfIdx);
+                indices.push_back(lbfIdx);
+
+                indices.push_back(ltfIdx);
+                indices.push_back(rtfIdx);
+                indices.push_back(rbfIdx);
+
+                // two triangles on the bottom face
+                indices.push_back(lbfIdx);
+                indices.push_back(rbnIdx);
+                indices.push_back(lbnIdx);
+
+                indices.push_back(lbfIdx);
+                indices.push_back(rbfIdx);
+                indices.push_back(rbnIdx);
+            }
+        }
+    }
 }
 
 void Voxelizer::createSphereMesh(const std::vector<double>& sphere, int numLongitudes, int numLatitudes,
