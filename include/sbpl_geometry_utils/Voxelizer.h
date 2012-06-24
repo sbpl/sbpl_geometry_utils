@@ -155,6 +155,22 @@ public:
 	 */
 	static void voxelizeSphereList(const std::vector<std::vector<double> >& spheres, double res, bool removeDuplicates,
 	                               std::vector<std::vector<double> >& voxels, double& volume);
+
+	/**
+	 * @brief a Quick And Dirty (QAD) enclosure of a list of spheres with a set of voxels of a given size
+	 *
+	 * Encloses a list of spheres with a set of voxels of a given size. The generated voxels appear in the frame the
+	 * spheres are described in.
+	 *
+	 * @param[in] spheres The list of spheres to voxelize
+	 * @param[in] res The resolution of the voxel cells
+	 * @param[in] removeDuplicates Whether to remove duplicate voxels
+	 * @param[out] voxels The vector in which to store the voxels
+	 * @param[out] volume The combined volume of all the spheres
+	 */
+  static void voxelizeSphereListQAD(const std::vector<std::vector<double> >& spheres, double res, bool removeDuplicates,
+                                 std::vector<std::vector<double> >& voxels, double& volume);
+
 private:
 	Voxelizer();
 
