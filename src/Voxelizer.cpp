@@ -2,7 +2,7 @@
 #include <cmath>
 #include <sbpl_geometry_utils/Voxelizer.h>
 
-#define USING_LOW_MEM_VOXEL_MESH 1
+#define USING_LOW_MEM_VOXEL_MESH 0
 
 namespace sbpl
 {

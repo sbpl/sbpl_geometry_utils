@@ -238,6 +238,7 @@ bool PathSimilarityMeasurer::generateNewWaypoints(const Trajectory& traj, double
         double distBetweenActualWaypoints = euclidDist(traj[passedWaypoint], traj[passedWaypoint + 1]);
         double distUntilNextWaypoint = euclidDist(newTraj.back(), traj[passedWaypoint + 1]);
 
+        // find a spot between the last placed waypoint and the next original waypoint further along the path
         if (pathInc < distUntilNextWaypoint) {
             double alpha = pathInc / distUntilNextWaypoint;
 
@@ -252,11 +253,20 @@ bool PathSimilarityMeasurer::generateNewWaypoints(const Trajectory& traj, double
             newTraj.push_back(p);
             numPlacedWaypoints++;
         }
+        // need to find what waypoints we are now in interpolating between
         else {
             passedWaypoint++; // we passed another of the actual waypoints
             distBetweenActualWaypoints = euclidDist(traj[passedWaypoint], traj[passedWaypoint + 1]);
 
             double newDist = pathInc - distUntilNextWaypoint;
+
+            // there may still be waypoints to pass
+            while (newDist > euclidDist(traj[passedWaypoint], traj[passedWaypoint + 1])) {
+                passedWaypoint++;
+                newDist -= euclidDist(traj[passedWaypoint], traj[passedWaypoint + 1]);
+                distBetweenActualWaypoints = euclidDist(traj[passedWaypoint], traj[passedWaypoint + 1]);
+            }
+
             double alpha = newDist / distBetweenActualWaypoints;
 
             double x = (1.0 - alpha) * traj[passedWaypoint].x + alpha * traj[passedWaypoint + 1].x;
