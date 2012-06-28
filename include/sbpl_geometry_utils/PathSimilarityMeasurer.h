@@ -16,22 +16,30 @@ public:
     ~PathSimilarityMeasurer();
 
     /**
-     * @brief Computes the similarity of two paths as the sum of variances between sets of corresponding waypoints along
-     *        a set of given paths
+     * @brief Computes the similarity of a set of paths as the sum of variances between sets of corresponding waypoints
+     *        along a set of given paths
      *
-     * @param[in] trajectories A non-empty set of non-NULL pointers to trajectories that you wish to
-     *                         compare for similarity
-     * @param[in] numWaypoints the number of corresponding waypoints along each path that are used for
+     * @param[in] trajectories A non-empty set of non-NULL pointers to trajectories to compare for similarity
+     * @param[in] numWaypoints The number of corresponding waypoints along each path that are used for
      *            testing variance; must be at least greater than or equal to 2 (for the two endpoints)
-     * @return value representing the similarity between paths; 0 represents the set of paths where all the
-     *         paths are equal to one another. a large number represents very dissimilar paths; -1.0
+     * @return Value representing the similarity between paths; larger numbers represent more dissimilar paths; -1.0
      *         represents an input error; equal to the sum of the variances of all the corresponding
      *         waypoints along all given paths
      */
     static double measure(const std::vector<const Trajectory*>& trajectories, int numWaypoints);
 
     /**
-     * @brief Computes the similarity of two paths using dynamic time warping on waypoints along the paths
+     * @brief Computes the similarity of a set of paths using dynamic time warping on waypoints along the paths
+     *
+     * This algorithm differs from measure() in that correspondance between waypoints is determined by their distance
+     * from one another rather than just their index in the waypoint list. This is to solve the issue where paths are
+     * very similar for the most part and their dissimilarity is concentrated around a certain region.
+     *
+     * @param[in] trajectories A non-empty set of non-NULL pointers to trajectories to compare for similarity
+     * @param[in] numWaypoints The number of corresponding wayoints along each path that are used for testing variance;
+     *                         must be at least greater than or equal to 2 (for the two endpoints)
+     * @return Value representing the similarity between paths; larger numbers represent more dissimilar paths; -1.0
+     *         represents an input error
      */
     static double measureDTW(const std::vector<const Trajectory*>& trajectories, int numWaypoints);
 
