@@ -43,6 +43,7 @@ private:
     static double calcPathLength(const Trajectory& traj);
     static bool generateNewWaypoints(const Trajectory& traj, double pathLength,
                                      int numWaypoints, Trajectory& newTraj);
+    static double compareDTW(const Trajectory& traj1, const Trajectory& traj2);
 };
 
 std::ostream& operator<<(std::ostream& o, const geometry_msgs::Point& p);

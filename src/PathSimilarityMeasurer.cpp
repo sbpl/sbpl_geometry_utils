@@ -119,48 +119,20 @@ double PathSimilarityMeasurer::measureDTW(const std::vector<const Trajectory*>& 
         assert((int)newTrajs[i].size() == numWaypoints);
     }
 
-    // allocate memory for dynamic programming
-    const double DTW_INFINITE = std::numeric_limits<double>::max();
-    double** dtw = new double*[numWaypoints];
-    for (int i = 0; i < numWaypoints; i++) {
-        dtw[i] = new double[numWaypoints];
-    }
+    double totalSimilarity = 0.0;
+    int numPairs = 0;
 
-    // initialize dtw
-    for (int i = 1; i < numWaypoints; i++) {
-        dtw[0][i] = DTW_INFINITE;
-        dtw[i][0] = DTW_INFINITE;
-    }
-    dtw[0][0] = 0.0;
-
-    for (int i = 1; i < numWaypoints; i++) {
-        for (int j = 1; j < numWaypoints; j++) {
-            const geometry_msgs::Point& p1 = newTrajs[0][i];
-            const geometry_msgs::Point& p2 = newTrajs[1][j];
-            // calculate the average point between point i on path one and point j on path two
-            // TODO: calculate the average point for all paths instead of just the first two
-            geometry_msgs::Point averagePt;
-            averagePt.x = averagePt.y = averagePt.z = 0.0;
-            averagePt.x = (p1.x + p2.x) / 2.0;
-            averagePt.y = (p1.y + p2.y) / 2.0;
-            averagePt.z = (p1.z + p2.z) / 2.0;
-
-            // cost between points is the computed as their variance from the midpoint
-            double cost = distSqrd(p1, averagePt) + distSqrd(p2, averagePt);
-
-            // dynamic programming funkiness
-            dtw[i][j] = cost + std::min(dtw[i - 1][j - 1], std::min(dtw[i - 1][j], dtw[i][j - 1]));
+    // for every pair of trajectories
+    for (unsigned t1 = 0; t1 < newTrajs.size(); t1++) {
+        for (unsigned t2 = t1 + 1; t2 < newTrajs.size(); t2++) {
+            totalSimilarity += compareDTW(newTrajs[t1], newTrajs[t2]);
+            numPairs++;
         }
     }
 
-    double similarity = dtw[numWaypoints - 1][numWaypoints - 1];
+    std::cout << "totalSimilarity: " << totalSimilarity << " numPairs: " << numPairs << std::endl;
 
-    for (int i = 0; i < numWaypoints; i++) {
-        delete dtw[i];
-    }
-    delete dtw;
-
-    return similarity;
+    return totalSimilarity / numPairs;
 }
 
 PathSimilarityMeasurer::PathSimilarityMeasurer()
@@ -267,6 +239,55 @@ bool PathSimilarityMeasurer::generateNewWaypoints(const Trajectory& traj, double
     }
 
     return true;
+}
+
+double PathSimilarityMeasurer::compareDTW(const Trajectory& traj1, const Trajectory& traj2)
+{
+    // allocate memory for dynamic programming
+    const double DTW_INFINITE = std::numeric_limits<double>::max();
+
+    double** dtw = new double*[traj1.size()];
+    for (unsigned i = 0; i < traj1.size(); i++) {
+        dtw[i] = new double[traj2.size()];
+    }
+
+    // initialize dtw
+    for (unsigned i = 1; i < traj1.size(); i++) {
+        dtw[i][0] = DTW_INFINITE;
+    }
+    for (unsigned i = 1; i < traj2.size(); i++) {
+        dtw[0][i] = DTW_INFINITE;
+    }
+    dtw[0][0] = 0.0;
+
+    for (int i = 1; i < (int)traj1.size(); i++) {
+        for (int j = 1; j < (int)traj2.size(); j++) {
+            const geometry_msgs::Point& p1 = traj1[i];
+            const geometry_msgs::Point& p2 = traj2[j];
+
+            // calculate the average point between point i on path one and point j on path two
+            geometry_msgs::Point averagePt;
+            averagePt.x = averagePt.y = averagePt.z = 0.0;
+            averagePt.x = (p1.x + p2.x) / 2.0;
+            averagePt.y = (p1.y + p2.y) / 2.0;
+            averagePt.z = (p1.z + p2.z) / 2.0;
+
+            // cost between points is the computed as their variance from the midpoint
+            double cost = distSqrd(p1, averagePt) + distSqrd(p2, averagePt);
+
+            // dynamic programming funkiness
+            dtw[i][j] = cost + std::min(dtw[i - 1][j - 1], std::min(dtw[i - 1][j], dtw[i][j - 1]));
+        }
+    }
+
+    double similarity = dtw[traj1.size() - 1][traj2.size() - 1];
+
+    for (unsigned i = 0; i < traj1.size(); i++) {
+        delete dtw[i];
+    }
+    delete dtw;
+
+    return similarity;
 }
 
 std::ostream& operator<<(std::ostream& o, const geometry_msgs::Point& p)
