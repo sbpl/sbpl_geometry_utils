@@ -41,20 +41,6 @@ double PathSimilarityMeasurer::measure(const std::vector<const Trajectory*>& tra
         generateNewWaypoints(*trajectories[i], pathLengths[i], numWaypoints, newTrajs[i]);
     }
 
-    // print out the new generated paths to make sure it makes sense
-    std::cout << "\t{ numwaypoints = " << numWaypoints << std::endl;;
-    for (int i = 0; i < (int)newTrajs.size(); i++) {
-
-        // print out the trajectory
-        std::cout << "\t\t{";
-        for (int j = 0; j < (int)newTrajs[i].size(); j++) {
-            std::cout << newTrajs[i][j];
-            if (j != (int)newTrajs[i].size() - 1) std::cout << ", ";
-        }
-        std::cout << "}" << std::endl;
-    }
-    std::cout << "\t}" << std::endl;
-
     // make sure we actually have numWaypoints for each path
     for (int i = 0; i < (int)newTrajs.size(); i++) {
         assert((int)newTrajs[i].size() == numWaypoints);
@@ -262,8 +248,8 @@ bool PathSimilarityMeasurer::generateNewWaypoints(const Trajectory& traj, double
 
             // there may still be waypoints to pass
             while (newDist > euclidDist(traj[passedWaypoint], traj[passedWaypoint + 1])) {
-                passedWaypoint++;
                 newDist -= euclidDist(traj[passedWaypoint], traj[passedWaypoint + 1]);
+                passedWaypoint++;
                 distBetweenActualWaypoints = euclidDist(traj[passedWaypoint], traj[passedWaypoint + 1]);
             }
 

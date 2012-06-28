@@ -44,3 +44,5 @@ rosbuild_add_library(${PROJECT_NAME}
 
 build_test(voxelize_sphere_list_test VoxelizeSphereListTest.cpp)
 build_test(measure_test MeasureTest.cpp)
+build_test(simple_measure_test SimpleMeasureTest.cpp)
+

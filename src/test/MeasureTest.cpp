@@ -1518,4 +1518,6 @@ int main(int argc, char** argv)
     double sim = PathSimilarityMeasurer::measure(trajectories, numWaypoints);
 
     cout << "Similarity is " << sim << endl;
+
+    return 0;
 }
