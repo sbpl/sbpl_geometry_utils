@@ -1,3 +1,4 @@
+#include <ros/ros.h>
 #include <iostream>
 #include <cmath>
 #include <sbpl_geometry_utils/Voxelizer.h>
