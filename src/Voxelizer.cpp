@@ -1,4 +1,3 @@
-#include <ros/ros.h>
 #include <iostream>
 #include <cmath>
 #include <sbpl_geometry_utils/Voxelizer.h>
@@ -54,7 +53,6 @@ void Voxelizer::voxelizeMesh(const std::vector<geometry_msgs::Point>& vertices, 
                              double voxelSize, std::vector<std::vector<double> >& voxels, bool fillMesh, int maxVoxels)
 {
     if ((int)triangles.size() % 3 != 0) {
-        ROS_ERROR("Mesh triangle list is not well-formed. Triangle list size should be a multiple of three.");
         return;
     }
 
