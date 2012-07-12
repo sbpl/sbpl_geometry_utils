@@ -9,7 +9,6 @@
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/sbpl_geometry_utils</url>
   <depend package="geometry_msgs"/>
-  <depend package="eigen"/>
 
   <export>
     <cpp cflags="-I${prefix}/include -I${prefix}/src" lflags="-Wl,-rpath,${prefix}/lib -L${prefix}/lib -lsbpl_geometry_utils"/>
