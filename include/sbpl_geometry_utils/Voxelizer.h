@@ -25,7 +25,7 @@ public:
      *                    position and the fourth element as the length of a voxel's side
      */
     static void voxelizeBox(double xSize, double ySize, double zSize, double voxelSize,
-                            std::vector<std::vector<double> >& voxels);
+                            std::vector<std::vector<double> >& voxels, bool fillMesh = false);
 
     /**
      * @brief Encloses a generic box with a set of voxels of a given size.
@@ -40,7 +40,7 @@ public:
      *                    position and the fourth element as the length of a voxel's side
      */
     static void voxelizeBox(double xSize, double ySize, double zSize, const geometry_msgs::Pose& pose, double voxelSize,
-                            std::vector<std::vector<double> >& voxels);
+                            std::vector<std::vector<double> >& voxels, bool fillMesh = false);
 
 	/**
      * @brief Encloses a sphere with a set of voxels of a given size.
@@ -53,7 +53,8 @@ public:
      *               this vector is a vector of doubles with the first three elements as the voxel's x,y,z
      *               position and the fourth element as the length of a voxel's side
      */
-    static void voxelizeSphere(double radius, double voxelSize, std::vector<std::vector<double> >& voxels);
+    static void voxelizeSphere(double radius, double voxelSize, std::vector<std::vector<double> >& voxels,
+                               bool fillMesh = false);
 
     /**
      * @brief Encloses a sphere with a set of voxels of a given size.
@@ -68,7 +69,7 @@ public:
      *               position and the fourth element as the length of a voxel's side
      */
     static void voxelizeSphere(double radius, const geometry_msgs::Pose& pose, double voxelSize,
-                               std::vector<std::vector<double> >& voxels);
+                               std::vector<std::vector<double> >& voxels, bool fillMesh = false);
 
     /**
      * @brief Encloses an axis-aligned cylinder with a set of voxels of a given size.
@@ -83,7 +84,7 @@ public:
      *                    position and the fourth element as the radius of the sphere
      */
     static void voxelizeCylinder(double cylinderRadius, double length, double voxelSize,
-                                 std::vector<std::vector<double> >& voxels);
+                                 std::vector<std::vector<double> >& voxels, bool fillMesh = false);
 
     /**
      * @brief Encloses a generic cylinder with a set of voxels of a given radius
@@ -98,7 +99,7 @@ public:
      *                    position and the fourth element as the radius of the sphere
      */
     static void voxelizeCylinder(double cylinderRadius, double length, const geometry_msgs::Pose& pose,
-                                 double voxelSize, std::vector<std::vector<double> >& voxels);
+                                 double voxelSize, std::vector<std::vector<double> >& voxels, bool fillMesh = false);
 
     /**
      * @brief Encloses a mesh with a set of voxels of a given size
@@ -154,7 +155,7 @@ public:
      * @param[out] volume The combined volume of all the spheres
      */
     static void voxelizeSphereList(const std::vector<std::vector<double> >& spheres, double res, bool removeDuplicates,
-                                   std::vector<std::vector<double> >& voxels, double& volume);
+                                   std::vector<std::vector<double> >& voxels, double& volume, bool fillMesh = false);
 
     /**
      * @brief a Quick And Dirty (QAD) enclosure of a list of spheres with a set of voxels of a given size
@@ -168,8 +169,9 @@ public:
      * @param[out] voxels The vector in which to store the voxels
      * @param[out] volume The combined volume of all the spheres
      */
-    static void voxelizeSphereListQAD(const std::vector<std::vector<double> >& spheres, double res, bool removeDuplicates,
-                                      std::vector<std::vector<double> >& voxels, double& volume);
+    static void voxelizeSphereListQAD(const std::vector<std::vector<double> >& spheres, double res,
+                                      bool removeDuplicates, std::vector<std::vector<double> >& voxels,
+                                      double& volume, bool fillMesh = false);
 
 private:
     Voxelizer();
@@ -178,6 +180,14 @@ private:
                                 std::vector<geometry_msgs::Point>& vertices, std::vector<int>& indices);
     static void createSphereMesh(const std::vector<double>& sphere, int numLongitudes, int numLatitudes,
                                  std::vector<geometry_msgs::Point>& vertices, std::vector<int>& triangles);
+    // if pos does not have size 3, each missing coordinate is assumed to be 0; same goes for dims except each missing
+    // dimension is assumed to be 1
+    static void createBoxMesh(const std::vector<double>& pos, const std::vector<double>& dims,
+                              std::vector<geometry_msgs::Point>& vertices, std::vector<int>& indices);
+    // creates a mesh for an upright (axis aligned with z-axis) cylinder
+    static void createCylinderMesh(const std::vector<double>& pos, double radius, double length,
+                                   std::vector<geometry_msgs::Point>& vertices, std::vector<int>& indices);
+
     static bool getAxisAlignedBoundingBox(const std::vector<geometry_msgs::Point>& vertices, double& minX,
                                           double& minY, double& minZ, double& maxX, double& maxY, double& maxZ);
     static void createCubeMesh(double x, double y, double z, double length, std::vector<Triangle>& trianglesOut);
@@ -186,6 +196,8 @@ private:
     static bool intersects(const Triangle& tr1, const Triangle& tr2, double eps = 1.0e-4);
     static bool pointOnTriangle(const Eigen::Vector3d& point, const Eigen::Vector3d& vertex1,
                                 const Eigen::Vector3d& vertex2, const Eigen::Vector3d& vertex3);
+    static void scanFill(std::vector<std::vector<std::vector<bool> > >& voxelGrid);
+    static void transformVertices(const Eigen::Affine3d& transform, std::vector<geometry_msgs::Point>& vertices);
 };
 
 }
