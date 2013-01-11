@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package>
+    <name>sbpl_geometry_utils</name>
+    <version>1.0.0</version>
+    <description>
+        Provides a library of various geometry utility functions for use in
+        search-based planning
+    </description>
+    <author email="andrew.dornbush@gmail.com">Andrew Dornbush</author>
+    <maintainer email="andrew.dornbush@gmail.com">Andrew Dornbush</maintainer>
+    <url>http://ros.org/wiki/sbpl_geometry_utils</url>
+    <license>BSD</license>
+
+    <buildtool_depend>catkin</buildtool_depend>
+
+    <build_depend>eigen</build_depend>
+    <build_depend>geometry_msgs</build_depend>
+
+    <run_depend>eigen</run_depend>
+    <run_depend>geometry_msgs</run_depend>
+</package>
