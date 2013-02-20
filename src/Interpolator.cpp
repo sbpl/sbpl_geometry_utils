@@ -160,6 +160,11 @@ bool Interpolator::normalizeAnglesIntoRange(std::vector<double>& angles,
 
     // normalize the startCopy configuration to be in the range [min_limit[angle], max_limit[angle]]
     for (unsigned i = 0; i < dim; i++) {
+        // first normalize anglesCopy[i] into the -2*pi, 2*pi range
+        if (fabs(anglesCopy[i]) > 2.0 * M_PI) {
+            anglesCopy[i] -= ((int)(anglesCopy[i] / (2.0 * M_PI))) * 2.0 * M_PI;
+        }
+
         if (anglesCopy[i] > maxLimits[i]) {
             while (anglesCopy[i] > maxLimits[i]) {
                 anglesCopy[i] -= 2 * M_PI;
