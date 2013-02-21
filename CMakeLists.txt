@@ -41,5 +41,7 @@ rosbuild_add_library(${PROJECT_NAME}
                      src/Interpolator.cpp
                      src/PathSimilarityMeasurer.cpp
                      src/Triangle.cpp
-                     src/Sphere.cpp)
+                     src/Sphere.cpp
+                     src/utils.cpp
+                     src/interpolation.cpp)
 
