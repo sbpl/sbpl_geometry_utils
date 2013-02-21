@@ -31,7 +31,6 @@ bool NormalizeAnglesIntoRange(std::vector<double>& angles,
 
     for (unsigned i = 0; i < dim; i++) {
         double min_angle_norm = utils::NormalizeAngle(min_limits[i], 0.0, 2.0 * M_PI);
-        double max_angle_norm = utils::NormalizeAngle(max_limits[i], 0.0, 2.0 * M_PI);
         angles[i] = utils::NormalizeAngle(angles[i], min_limits[i], min_angle_norm);
         if (angles[i] < min_limits[i] || angles[i] > max_limits[i]) {
             return false;
