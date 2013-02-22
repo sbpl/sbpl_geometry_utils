@@ -22,9 +22,6 @@ add_library(sbpl_geometry_utils
             src/interpolation.cpp)
 target_link_libraries(sbpl_geometry_utils ${catkin_LIBRARIES})
 
-add_executable(test_interp test/test_interp.cpp)
-target_link_libraries(test_interp ${PROJECT_NAME})
-
 install(TARGETS sbpl_geometry_utils
         LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})
 
