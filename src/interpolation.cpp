@@ -53,6 +53,15 @@ bool InterpolatePath(const std::vector<double>& start, const std::vector<double>
 
 bool InterpolatePath(const std::vector<double>& start, const std::vector<double>& end,
                      const std::vector<double>& min_limits, const std::vector<double>& max_limits,
+                     const std::vector<double>& inc, double eps,
+                     std::vector<std::vector<double> >& path)
+{
+    std::vector<bool> continuous_joints(start.size(), false);
+    return InterpolatePath(start, end, min_limits, max_limits, inc, continuous_joints, eps, path);
+}
+
+bool InterpolatePath(const std::vector<double>& start, const std::vector<double>& end,
+                     const std::vector<double>& min_limits, const std::vector<double>& max_limits,
                      const std::vector<double>& inc, const std::vector<bool>& continuous_joints,
                      std::vector<std::vector<double> >& path)
 {
