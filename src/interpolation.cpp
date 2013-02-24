@@ -1,5 +1,4 @@
 #include <cmath>
-#include <iostream> // TODO: remove
 #include <sbpl_geometry_utils/interpolation.h>
 #include <sbpl_geometry_utils/utils.h>
 
@@ -48,13 +47,23 @@ bool InterpolatePath(const std::vector<double>& start, const std::vector<double>
                      std::vector<std::vector<double> >& path)
 {
     std::vector<bool> continuous_joints(start.size(), false);
-    return InterpolatePath(start, end, min_limits, max_limits, inc, continuous_joints, path);
+    const double eps = 1e-6;
+    return InterpolatePath(start, end, min_limits, max_limits, inc, continuous_joints, eps, path);
 }
 
 bool InterpolatePath(const std::vector<double>& start, const std::vector<double>& end,
                      const std::vector<double>& min_limits, const std::vector<double>& max_limits,
                      const std::vector<double>& inc, const std::vector<bool>& continuous_joints,
                      std::vector<std::vector<double> >& path)
+{
+    const double eps = 1e-6;
+    return InterpolatePath(start, end, min_limits, max_limits, inc, continuous_joints, eps, path);
+}
+
+bool InterpolatePath(const std::vector<double>& start, const std::vector<double>& end,
+                     const std::vector<double>& min_limits, const std::vector<double>& max_limits,
+                     const std::vector<double>& inc, const std::vector<bool>& continuous_joints,
+                     double eps, std::vector<std::vector<double> >& path)
 {
     path.clear();
 
@@ -115,7 +124,8 @@ bool InterpolatePath(const std::vector<double>& start, const std::vector<double>
 
             // add the last little bit to reach the end for this joint angle
             if (fabs(anglediff) < inc[i]) {
-                curr_cfg[i] -= anglediff;
+                curr_cfg[i] += travel_dirs[i] * fabs(anglediff);
+                done_angles[i] = true;
             }
             // add increment in the direction of the shortest legal angle
             else {
@@ -138,8 +148,7 @@ bool InterpolatePath(const std::vector<double>& start, const std::vector<double>
         // mark angles done if they've reached the end; check for done overall
         done = true;
         for (unsigned i = 0; i < dim; i++) {
-            const double epsilon = 1.0e-6;
-            done_angles[i] = (fabs(end_norm[i] - curr_cfg[i]) < epsilon);
+            done_angles[i] = (fabs(end_norm[i] - curr_cfg[i]) < eps);
             done &= done_angles[i];
         }
     }
