@@ -1,4 +1,5 @@
 #include <cmath>
+#include <iostream>
 #include <sbpl_geometry_utils/interpolation.h>
 #include <sbpl_geometry_utils/utils.h>
 
@@ -82,8 +83,7 @@ bool InterpolatePath(const std::vector<double>& start, const std::vector<double>
 
     // check that all inputs have the same size
     unsigned dim = start_norm.size();
-    if (dim != end_norm.size() || dim != inc.size() ||
-        dim != min_limits.size() || dim != max_limits.size() ||
+    if (dim != end_norm.size() || dim != inc.size() || dim != min_limits.size() || dim != max_limits.size() ||
         dim != continuous_joints.size())
     {
         return false;
@@ -105,9 +105,7 @@ bool InterpolatePath(const std::vector<double>& start, const std::vector<double>
             travel_dirs[i] = utils::Sign(angle_diff);
         }
         else {
-            if (start_norm[i] + angle_diff > max_limits[i] ||
-                start_norm[i] + angle_diff < min_limits[i])
-            {
+            if (start_norm[i] + angle_diff > max_limits[i] || start_norm[i] + angle_diff < min_limits[i]) {
                 travel_dirs[i] = -utils::Sign(angle_diff);
             }
             else {
@@ -116,50 +114,60 @@ bool InterpolatePath(const std::vector<double>& start, const std::vector<double>
         }
     }
 
+    int max_iterations = 0;
+    for (int i = 0; i < dim; i++) {
+        double angle_diff = utils::ShortestAngleDiff(end_norm[i], start_norm[i]);
+
+        double angle_dist;
+        if (start_norm[i] + angle_diff > max_limits[i] || start_norm[i] + angle_diff < min_limits[i]) {
+            angle_dist = 2 * M_PI - fabs(angle_diff);
+        }
+        else {
+            angle_dist = fabs(angle_diff);
+        }
+
+        int max_iters_for_angle = 0;
+        if (fabs(end_norm[i] - start_norm[i]) < eps) {
+            max_iters_for_angle = 1;
+        }
+        else if (fabs(end_norm[i] - start_norm[i]) <= inc[i]) {
+            max_iters_for_angle = 1;
+        }
+        else {
+            max_iters_for_angle = (int)ceil(angle_dist / inc[i]);
+        }
+
+        max_iterations = std::max(max_iterations, max_iters_for_angle);
+    }
+
     // interpolate between angles
-    std::vector<bool> done_angles(dim, false);
     std::vector<double> curr_cfg = start_norm;
     path.push_back(curr_cfg);
-    bool done = false;
-    while (!done) {
+    for (int c = 0; c < max_iterations; c++) {
         // inch all the joint angles towards the end
         for (unsigned i = 0; i < dim; i++) {
-            // don't add anything if this joint has already reached the end
-            if (done_angles[i]) {
-                continue;
-            }
-
             double anglediff = utils::ShortestAngleDiff(curr_cfg[i], end_norm[i]);
 
-            // add the last little bit to reach the end for this joint angle
             if (fabs(anglediff) < inc[i]) {
-                curr_cfg[i] += travel_dirs[i] * fabs(anglediff);
-                done_angles[i] = true;
+                // add the last little bit to reach the end for this joint angle
+                curr_cfg[i] += anglediff;
             }
-            // add increment in the direction of the shortest legal angle
             else {
+                // add increment in the direction of the shortest legal angle
                 curr_cfg[i] += travel_dirs[i] * inc[i];
             }
 
-            // wrap into the [min_limits[i], max_limits[i]] range to keep continuous joints in
-            // desired range
+            // wrap into the [min_limits[i], max_limits[i]] range to keep continuous joints in desired range
             if (curr_cfg[i] > max_limits[i]) {
-                while (curr_cfg[i] > max_limits[i]) curr_cfg[i] -= 2 * M_PI;
+                curr_cfg[i] -= 2 * M_PI;
             }
             if (curr_cfg[i] < min_limits[i]) {
-                while (curr_cfg[i] < min_limits[i]) curr_cfg[i] += 2 * M_PI;
+                curr_cfg[i] += 2 * M_PI;
             }
         }
 
         // add this waypoint to the path
         path.push_back(curr_cfg);
-
-        // mark angles done if they've reached the end; check for done overall
-        done = true;
-        for (unsigned i = 0; i < dim; i++) {
-            done_angles[i] = (fabs(end_norm[i] - curr_cfg[i]) < eps);
-            done &= done_angles[i];
-        }
     }
 
     return true;
