@@ -6,10 +6,10 @@ namespace sbpl
     namespace utils
     {
 
-/// @brief Normalize an angle into the range [angle_min, angle_max).
+/// @brief Normalize an angle into the range [angle_min, angle_max].
 ///
 /// Assumes that the difference between \angle_max and \angle_min is 2*pi such
-/// as the ranges [-pi, pi) and [0, 2*pi).
+/// as the ranges [-pi, pi] and [0, 2*pi].
 double NormalizeAngle(double angle_rad, double angle_min_rad, double angle_max_rad);
 
 /// @brief Return the shortest distance between two angles, in radians.

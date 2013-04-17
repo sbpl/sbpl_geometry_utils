@@ -13,7 +13,7 @@ double NormalizeAngle(double angle_rad, double angle_min_rad, double angle_max_r
         angle_rad -= ((int)(angle_rad / (2.0 * M_PI))) * 2.0 * M_PI;
     }
 
-    while (angle_rad >= angle_max_rad) {
+    while (angle_rad > angle_max_rad) {
         angle_rad -= 2.0 * M_PI;
     }
 
