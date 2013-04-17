@@ -11,7 +11,7 @@ namespace sbpl
 namespace
 {
 
-// @brief Normalize all angles in \angles into the range [min_limits, max_limits)
+// @brief Normalize all angles in \angles into the range [min_limits, max_limits]
 // @return true if min_limits and max_limits are valid (have the same size as angles and
 //         (max_limits[i] > min_limits[i]) and \angles fall within those limits; false otherwise
 bool NormalizeAnglesIntoRange(std::vector<double>& angles,
@@ -119,7 +119,10 @@ bool InterpolatePath(const std::vector<double>& start, const std::vector<double>
         double angle_diff = utils::ShortestAngleDiff(end_norm[i], start_norm[i]);
 
         double angle_dist;
-        if (start_norm[i] + angle_diff > max_limits[i] || start_norm[i] + angle_diff < min_limits[i]) {
+        if (continuous_joints[i]) {
+            angle_dist = fabs(angle_diff);
+        }
+        else if (start_norm[i] + angle_diff > max_limits[i] || start_norm[i] + angle_diff < min_limits[i]) {
             angle_dist = 2 * M_PI - fabs(angle_diff);
         }
         else {
@@ -127,10 +130,10 @@ bool InterpolatePath(const std::vector<double>& start, const std::vector<double>
         }
 
         int max_iters_for_angle = 0;
-        if (fabs(end_norm[i] - start_norm[i]) < eps) {
+        if (angle_dist < eps) {
             max_iters_for_angle = 1;
         }
-        else if (fabs(end_norm[i] - start_norm[i]) <= inc[i]) {
+        else if (angle_dist <= inc[i]) {
             max_iters_for_angle = 1;
         }
         else {
