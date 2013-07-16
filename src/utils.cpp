@@ -24,6 +24,32 @@ double NormalizeAngle(double angle_rad, double angle_min_rad, double angle_max_r
     return angle_rad;
 }
 
+bool NormalizeAnglesIntoRange(std::vector<double>& angles,
+                              const std::vector<double>& min_limits,
+                              const std::vector<double>& max_limits)
+{
+    unsigned dim = angles.size();
+    if (min_limits.size() != dim || max_limits.size() != dim) {
+        return false;
+    }
+
+    for (unsigned i = 0; i < dim; i++) {
+        if (min_limits[i] > max_limits[i]) {
+            return false;
+        }
+    }
+
+    for (unsigned i = 0; i < dim; i++) {
+        double min_angle_norm = utils::NormalizeAngle(min_limits[i], 0.0, 2.0 * M_PI);
+        angles[i] = utils::NormalizeAngle(angles[i], min_limits[i], min_angle_norm);
+        if (angles[i] < min_limits[i] || angles[i] > max_limits[i]) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 double ShortestAngleDist(double a1_rad, double a2_rad)
 {
     double a1_norm = NormalizeAngle(a1_rad, 0.0, 2.0 * M_PI);

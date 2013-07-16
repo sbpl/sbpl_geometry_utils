@@ -8,40 +8,6 @@ namespace sbpl
     namespace interp
     {
 
-namespace
-{
-
-// @brief Normalize all angles in \angles into the range [min_limits, max_limits]
-// @return true if min_limits and max_limits are valid (have the same size as angles and
-//         (max_limits[i] > min_limits[i]) and \angles fall within those limits; false otherwise
-bool NormalizeAnglesIntoRange(std::vector<double>& angles,
-                              const std::vector<double>& min_limits,
-                              const std::vector<double>& max_limits)
-{
-    unsigned dim = angles.size();
-    if (min_limits.size() != dim || max_limits.size() != dim) {
-        return false;
-    }
-
-    for (unsigned i = 0; i < dim; i++) {
-        if (min_limits[i] > max_limits[i]) {
-            return false;
-        }
-    }
-
-    for (unsigned i = 0; i < dim; i++) {
-        double min_angle_norm = utils::NormalizeAngle(min_limits[i], 0.0, 2.0 * M_PI);
-        angles[i] = utils::NormalizeAngle(angles[i], min_limits[i], min_angle_norm);
-        if (angles[i] < min_limits[i] || angles[i] > max_limits[i]) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-} // end empty namespace
-
 bool InterpolatePath(const std::vector<double>& start, const std::vector<double>& end,
                      const std::vector<double>& min_limits, const std::vector<double>& max_limits,
                      const std::vector<double>& inc,
@@ -90,10 +56,10 @@ bool InterpolatePath(const std::vector<double>& start, const std::vector<double>
     }
 
     // check that min_limits and max_limits make sense, and normalize angles
-    if (!NormalizeAnglesIntoRange(start_norm, min_limits, max_limits)) {
+    if (!utils::NormalizeAnglesIntoRange(start_norm, min_limits, max_limits)) {
         return false;
     }
-    if (!NormalizeAnglesIntoRange(end_norm, min_limits, max_limits)) {
+    if (!utils::NormalizeAnglesIntoRange(end_norm, min_limits, max_limits)) {
         return false;
     }
 
