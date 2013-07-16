@@ -4,12 +4,15 @@ project(sbpl_geometry_utils)
 find_package(catkin REQUIRED COMPONENTS geometry_msgs)
 find_package(Eigen REQUIRED)
 
+
 catkin_package(INCLUDE_DIRS include src
                LIBRARIES sbpl_geometry_utils
                CATKIN_DEPENDS geometry_msgs
                DEPENDS Eigen)
 
 include_directories(include ${catkin_INCLUDE_DIRS} ${Eigen_INCLUDE_DIRS})
+
+set(CMAKE_BUILD_TYPE Release)
 
 add_library(sbpl_geometry_utils
             src/Interpolator.cpp
