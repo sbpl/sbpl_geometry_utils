@@ -9,6 +9,34 @@
 namespace sbpl
 {
 
+void VoxelizePlane(double a, double b, double c, double d, double voxel_size,
+                   unsigned char* grid, int width, int height, int depth);
+
+/// @brief Voxelize a triangle.
+/// @param p1 The first vertex of the triangle (TODO: can vertices be specified in clockwise order?)
+/// @param p2 The second vertex of the triangle
+/// @param p3 The third vertex of the triangle
+/// @param grid The grid in which to voxelize the triangle. The occupied voxels will have a value of 1 while
+///             unoccupied voxels are unaffected. The grid spans the continuous world from the origin along the
+///             positive axes x, y, z by width, height, depth respectively
+/// @param width The width of the voxel grid
+/// @param height The height of the voxel grid
+/// @param depth The depth of the voxel grid
+void VoxelizeTriangle(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, const geometry_msgs::Point& p3,
+                      unsigned char* grid, int width, int height, int depth);
+
+void VoxelizeMesh(const std::vector<geometry_msgs::Point>& vertices, const std::vector<int>& indices,
+                  unsigned char* grid, int width, int height, int depth);
+
+/// @brief Voxelize a mesh.
+/// @param[in] vertices The vertices of the mesh
+/// @param[in] indices Indices into the list of vertices where every three successive indices correspond to a triangle
+/// @param[in] cell_size The size of the voxels
+/// @param[out] out The resulting voxel grid as a list of points; each element of \out is a 3-dimensional vector
+///                 representing the center of a size cell_size^3, axis-aligned voxel.
+void VoxelizeMesh(const std::vector<geometry_msgs::Point>& vertices, const std::vector<int>& indices,
+                  double cell_size, std::vector<std::vector<double> >& out);
+
 class Voxelizer
 {
 public:

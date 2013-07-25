@@ -1,6 +1,9 @@
+#include <algorithm>
 #include <iostream>
+#include <cstdio>
 #include <cmath>
 #include <sbpl_geometry_utils/Voxelizer.h>
+#include <sbpl_geometry_utils/utils.h>
 
 #define USING_LOW_MEM_VOXEL_MESH 0
 
@@ -1242,6 +1245,269 @@ void Voxelizer::transformVertices(const Eigen::Affine3d& transform, vector<Point
         vertices[i].y = transVec(1);
         vertices[i].z = transVec(2);
     }
+}
+
+double Distance(double a, double b, double c, double d, double x, double y, double z)
+{
+    double dist = (a * x + b * y + c * z + d) / sqrt(a * a + b * b + c * c);
+    return dist;
+}
+
+void VoxelizePlane(double a, double b, double c, double d, double voxel_size,
+                   unsigned char* grid, int width, int height, int depth)
+{
+    d *= -1;
+//    double t = 1.0 / 2.0; // TODO: make voxel size
+    double t = sqrt(3) / 2;
+    for (int z = 0; z < depth; z++) {
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                // for each voxel at x, y, z
+                double voxel_x = x + 0.5;
+                double voxel_y = y + 0.5;
+                double voxel_z = z + 0.5;
+                if (utils::Sign(a * voxel_x + b * voxel_y + c * voxel_z + (d + t)) !=
+                    utils::Sign(a * voxel_x + b * voxel_y + c * voxel_z + (d - t)))
+                {
+                    // voxel lies between two points
+                    grid[width * height * z + width * y + x] = 1;
+                }
+            }
+        }
+    }
+}
+
+double Distance(double p1x, double p1y, double p1z, double p2x, double p2y, double p2z,
+                double radius_sqrd, double x, double y, double z)
+{
+    double dx = p2x - p1x;
+    double dy = p2y - p1y;
+    double dz = p2z - p1z;
+    double length_sqrd = dx * dx + dy * dy + dz * dz;
+
+    double pdx = x - p1x;
+    double pdy = y - p1y;
+    double pdz = z - p1z;
+
+    double dot = pdx * dx + pdy * dy + pdz * dz;
+
+    if (dot < 0.0 || dot > length_sqrd) {
+        return -1.0;
+    }
+    else {
+        double dsq = pdx * pdx + pdy * pdy + pdz * pdz - dot * dot / length_sqrd;
+        if (dsq > radius_sqrd) {
+            return -1.0;
+        }
+        else {
+            return dsq;
+        }
+    }
+}
+
+/// An Accurate Method for Voxelizing Polygon Meshes - Huang, Yagel, Filippov, Kurzion
+void VoxelizeTriangle(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, const geometry_msgs::Point& p3,
+                      unsigned char* grid, int width, int height, int depth)
+{
+    // check for colinearity and counterclockwiseness
+    double det = ((p2.x - p1.x)*(p3.y - p1.y) - (p2.y - p1.y)*(p3.x - p1.x));
+    if (det == 0) {
+        return;
+    }
+
+    using Eigen::Vector3d;
+
+    // thickness parameters
+//    double t = 0.5 * sqrt(3.0);
+//    double t2 = 3.0 / 4.0;
+
+    double t = 0.5 * 1.0;
+    double t2 = 0.25;
+
+    int min_x = (int)(p1.x < p2.x ? (p1.x < p3.x ? p1.x : p3.x) : (p2.x < p3.x ? p2.x : p3.x));
+    min_x = std::max(min_x, 0);
+
+    int max_x = (int)((p1.x > p2.x ? (p1.x > p3.x ? p1.x : p3.x) : (p2.x > p3.x ? p2.x : p3.x)));
+    max_x = std::min(max_x, width - 1);
+
+    int min_y = (int)(p1.y < p2.y ? (p1.y < p3.y ? p1.y : p3.y) : (p2.y < p3.y ? p2.y : p3.y));
+    min_y = std::max(min_y, 0);
+
+    int max_y = (int)((p1.y > p2.y ? (p1.y > p3.y ? p1.y : p3.y) : (p2.y > p3.y ? p2.y : p3.y)));
+    max_y = std::min(max_y, height - 1);
+
+    int min_z = (int)(p1.z < p2.z ? (p1.z < p3.z ? p1.z : p3.z) : (p2.z < p3.z ? p2.z : p3.z));
+    min_z = std::max(min_z, 0);
+
+    int max_z = (int)((p1.z > p2.z ? (p1.z > p3.z ? p1.z : p3.z) : (p2.z > p3.z ? p2.z : p3.z)));
+    max_z = std::min(max_z, depth - 1);
+
+    Eigen::Vector3d p_1(p1.x, p1.y, p1.z);
+    Eigen::Vector3d p_2(p2.x, p2.y, p2.z);
+    Eigen::Vector3d p_3(p3.x, p3.y, p3.z);
+
+    // make p_1, p_2, p_3 ccw
+    if (det < 0.0)
+        std::swap(p_1, p_3);
+
+    // get the normal vector for the triangle
+    Eigen::Vector3d u = p_2 - p_1;
+    Eigen::Vector3d v = p_3 - p_2;
+    Eigen::Vector3d w = p_1 - p_3;
+    Eigen::Vector3d n = u.cross(v);
+    n.normalize();
+
+    // get the distance from the origin for the triangle plane
+    double d = -n.dot(p_1);
+
+    // normal to the edge p2 - p1 pointing inwards
+    Vector3d e1 = -u.cross(n);
+    e1.normalize();
+
+    // normal to the edge p3 - p2 pointing inwards
+    Vector3d e2 = -v.cross(n);
+    e2.normalize();
+
+    // normal to the edge p1 - p3 pointing inwards
+    Vector3d e3 = -w.cross(n);
+    e3.normalize();
+
+    // distances of the edge-guard planes from the origin
+    double d1 = -e1.dot(p_1);
+    double d2 = -e2.dot(p_2);
+    double d3 = -e3.dot(p_3);
+
+    // consider all voxels that this triangle can voxelize
+    for (int x = min_x; x <= max_x; x++) {
+        for (int y = min_y; y <= max_y; y++) {
+            for (int z = min_z; z <= max_z; z++) {
+                if (grid[width * height * z + width * y + x]) {
+                    continue;
+                }
+
+                // check if the voxel point is in the plane of the triangle and within the edges
+                double voxel_x = x + 0.5;
+                double voxel_y = y + 0.5;
+                double voxel_z = z + 0.5;
+                Vector3d voxel_p(voxel_x, voxel_y, voxel_z);
+
+                double dx1 = voxel_p(0) - p_1(0); double dy1 = voxel_p(1) - p_1(1); double dz1 = voxel_p(2) - p_1(2);
+                double dx2 = voxel_p(0) - p_2(0); double dy2 = voxel_p(1) - p_2(1); double dz2 = voxel_p(2) - p_2(2);
+                double dx3 = voxel_p(0) - p_3(0); double dy3 = voxel_p(1) - p_3(1); double dz3 = voxel_p(2) - p_3(2);
+
+                if ((dx1 * dx1 + dy1 * dy1 + dz1 * dz1) <= t2 ||
+                    (dx2 * dx2 + dy2 * dy2 + dz2 * dz2) <= t2 ||
+                    (dx3 * dx3 + dy3 * dy3 + dz3 * dz3) <= t2)
+                {
+                    // check for a vertex filling in this voxel
+                    grid[width * height * z + width * y + x] = 1;
+                }
+                else if (Distance(p_1(0), p_1(1), p_1(2), p_2(0), p_2(1), p_2(2), t2, voxel_p(0), voxel_p(1), voxel_p(2)) != -1.0 ||
+                         Distance(p_2(0), p_2(1), p_2(2), p_3(0), p_3(1), p_3(2), t2, voxel_p(0), voxel_p(1), voxel_p(2)) != -1.0 ||
+                         Distance(p_3(0), p_3(1), p_3(2), p_1(0), p_1(1), p_1(2), t2, voxel_p(0), voxel_p(1), voxel_p(2)) != -1.0)
+                {
+                    // then check for an edge
+                    grid[width * height * z + width * y + x] = 1;
+                }
+                else {
+                    // then check for inside the triangle
+                    if ((
+                            // inside triangle thickness
+                            utils::Sign(n.dot(voxel_p) + (d + t)) != utils::Sign(n.dot(voxel_p) + (d - t))
+                        ) &&
+                        (
+                            // inside the edge bounding planes
+                            (
+                                (e1.dot(voxel_p) + d1 > 0.0) &&
+                                (e2.dot(voxel_p) + d2 > 0.0) &&
+                                (e3.dot(voxel_p) + d3 > 0.0)
+                            )
+                        ))
+                    {
+                        grid[width * height * z + width * y + x] = 1;
+                    }
+                }
+            }
+        }
+    }
+}
+
+void VoxelizeMesh(const std::vector<geometry_msgs::Point>& vertices, const std::vector<int>& indices,
+                  unsigned char* grid, int width, int height, int depth)
+{
+    for (int i = 0; i < (int)indices.size() / 3; i++) {
+        VoxelizeTriangle(vertices[indices[3 * i]], vertices[indices[3 * i + 1]], vertices[indices[3 * i + 2]],
+                         grid, width, height, depth);
+    }
+}
+
+static bool CompareX(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2)
+{
+    return p1.x < p2.x;
+}
+
+static bool CompareY(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2)
+{
+    return p1.y < p2.y;
+}
+
+static bool CompareZ(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2)
+{
+    return p1.z < p2.z;
+}
+
+void VoxelizeMesh(const std::vector<geometry_msgs::Point>& vertices, const std::vector<int>& indices,
+                  double cell_size, std::vector<std::vector<double> >& out)
+{
+    out.clear();
+    double min_cx = std::min_element(vertices.begin(), vertices.end(), CompareX)->x;
+    double min_cy = std::min_element(vertices.begin(), vertices.end(), CompareY)->y;
+    double min_cz = std::min_element(vertices.begin(), vertices.end(), CompareZ)->z;
+    int min_x = (int)(min_cx / cell_size);
+    int max_x = (int)(std::max_element(vertices.begin(), vertices.end(), CompareX)->x / cell_size) + 1;
+    int min_y = (int)(min_cy / cell_size);
+    int max_y = (int)(std::max_element(vertices.begin(), vertices.end(), CompareY)->y / cell_size) + 1;
+    int min_z = (int)(min_cz / cell_size);
+    int max_z = (int)(std::max_element(vertices.begin(), vertices.end(), CompareZ)->z / cell_size) + 1;
+
+    int width = max_x - min_x;
+    int height = max_y - min_y;
+    int depth = max_z - min_z;
+
+    std::vector<geometry_msgs::Point> vertices_copy = vertices;
+    for (std::vector<geometry_msgs::Point>::iterator it = vertices_copy.begin(); it != vertices_copy.end(); ++it) {
+        // shift the mesh to be in the first quadrant right up next to the origin
+        it->x -= min_x;
+        it->y -= min_y;
+        it->z -= min_z;
+        // scale to grid
+        it->x /= cell_size;
+        it->y /= cell_size;
+        it->z /= cell_size;
+    }
+    unsigned char* grid = new unsigned char[width * height * depth];
+    for (int i = 0; i < width * height * depth; i++) {
+        grid[i] = 0;
+    }
+
+    VoxelizeMesh(vertices_copy, indices, grid, width, height, depth);
+    for (int x = 0; x < width; x++) {
+        for (int y = 0; y < height; y++) {
+            for (int z = 0; z < depth; z++) {
+                if (grid[width * height * z + width * y + x] != 0) {
+                    double cx = (x + 0.5) * cell_size + min_cx;
+                    double cy = (y + 0.5) * cell_size + min_cy;
+                    double cz = (z + 0.5) * cell_size + min_cz;
+                    std::vector<double> coord(3);
+                    coord[0] = cx;
+                    coord[1] = cy;
+                    coord[2] = cz;
+                    out.push_back(coord);
+                }
+            }
+        }
+    }
+    delete grid;
 }
 
 }
