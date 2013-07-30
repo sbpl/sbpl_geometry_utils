@@ -1477,9 +1477,9 @@ void VoxelizeMesh(const std::vector<geometry_msgs::Point>& vertices, const std::
     std::vector<geometry_msgs::Point> vertices_copy = vertices;
     for (std::vector<geometry_msgs::Point>::iterator it = vertices_copy.begin(); it != vertices_copy.end(); ++it) {
         // shift the mesh to be in the first quadrant right up next to the origin
-        it->x -= min_x;
-        it->y -= min_y;
-        it->z -= min_z;
+        it->x -= min_cx;
+        it->y -= min_cy;
+        it->z -= min_cz;
         // scale to grid
         it->x /= cell_size;
         it->y /= cell_size;
