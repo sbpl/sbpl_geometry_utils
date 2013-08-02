@@ -1309,8 +1309,12 @@ double Distance(double p1x, double p1y, double p1z, double p2x, double p2y, doub
 void VoxelizeTriangle(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, const geometry_msgs::Point& p3,
                       unsigned char* grid, int width, int height, int depth)
 {
+    Eigen::Vector3d p_1(p1.x, p1.y, p1.z);
+    Eigen::Vector3d p_2(p2.x, p2.y, p2.z);
+    Eigen::Vector3d p_3(p3.x, p3.y, p3.z);
+
     // check for colinearity and counterclockwiseness
-    double det = ((p2.x - p1.x)*(p3.y - p1.y) - (p2.y - p1.y)*(p3.x - p1.x));
+    double det = ((p_2 - p_1).cross(p_3 - p_1).norm());
     if (det == 0) {
         return;
     }
@@ -1341,10 +1345,6 @@ void VoxelizeTriangle(const geometry_msgs::Point& p1, const geometry_msgs::Point
 
     int max_z = (int)((p1.z > p2.z ? (p1.z > p3.z ? p1.z : p3.z) : (p2.z > p3.z ? p2.z : p3.z)));
     max_z = std::min(max_z, depth - 1);
-
-    Eigen::Vector3d p_1(p1.x, p1.y, p1.z);
-    Eigen::Vector3d p_2(p2.x, p2.y, p2.z);
-    Eigen::Vector3d p_3(p3.x, p3.y, p3.z);
 
     // make p_1, p_2, p_3 ccw
     if (det < 0.0)
