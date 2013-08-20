@@ -33,7 +33,7 @@ void Voxelizer::voxelizeBox(double xSize, double ySize, double zSize, const Pose
 {
     vector<double> pos(3, 0.0);
     double dimensions[] = {xSize, ySize, zSize};
-    vector<double> dims(dimensions, dimensions + sizeof(dimensions) / sizeof(dimensions));
+    vector<double> dims(dimensions, dimensions + sizeof(dimensions) / sizeof(double));
     vector<Point> vertices;
     vector<int> triangles;
     createBoxMesh(pos, dims, vertices, triangles);
@@ -76,13 +76,26 @@ void Voxelizer::voxelizeSphere(double radius, const Pose& pose, double voxelSize
 void Voxelizer::voxelizeCylinder(double cylinderRadius, double length, double voxelSize,
                                  vector<vector<double> >& voxels, bool fillMesh)
 {
-    return; // TODO
+    vector<double> pos(3, 0.0);
+    vector<Point> vertices;
+    vector<int> triangles;
+    createCylinderMesh(pos, length, cylinderRadius, vertices, triangles);
+    voxelizeMesh(vertices, triangles, voxelSize, voxels, fillMesh);
 }
 
 void Voxelizer::voxelizeCylinder(double cylinderRadius, double length, const Pose& pose,
                                  double voxelSize, vector<vector<double> >& voxels, bool fillMesh)
 {
-    return; // TODO
+    vector<double> pos(3, 0.0);
+    vector<Point> vertices;
+    vector<int> triangles;
+    createCylinderMesh(pos, length, cylinderRadius, vertices, triangles);
+
+    Eigen::Quaterniond q(pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z);
+    Eigen::Translation3d transMatrix(pose.position.x, pose.position.y, pose.position.z);
+    transformVertices(transMatrix * q, vertices);
+    
+    voxelizeMesh(vertices, triangles, voxelSize, voxels, fillMesh);
 }
 
 void Voxelizer::voxelizeMesh(const vector<Point>& vertices, const vector<int>& triangles,
@@ -259,8 +272,7 @@ void Voxelizer::voxelizeMesh(const vector<Point>& vertices, const vector<int>& t
     Eigen::Quaterniond q(pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z);
     Eigen::Translation3d transMatrix(pose.position.x, pose.position.y, pose.position.z);
     transformVertices(transMatrix * q, verticesCopy);
-
-    voxelizeMesh(verticesCopy, triangles, voxelSize, voxels, true);
+    sbpl::VoxelizeMesh(verticesCopy, triangles, voxelSize, voxels);
 }
 
 void Voxelizer::voxelizeSphereList(const vector<vector<double> >& spheres, double res, bool removeDuplicates,
