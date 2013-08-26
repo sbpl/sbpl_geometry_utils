@@ -1,3 +1,4 @@
+#include <cassert>
 #include <cmath>
 #include <algorithm>
 #include <sbpl_geometry_utils/utils.h>
@@ -47,6 +48,20 @@ bool NormalizeAnglesIntoRange(std::vector<double>& angles,
         }
     }
 
+    return true;
+}
+
+bool AreJointsWithinLimits(const std::vector<double>& angles,
+                           const std::vector<double>& min_limits,
+                           const std::vector<double>& max_limits)
+{
+    assert(min_limits.size() == angles.size() && max_limits.size() == angles.size());
+
+    for (int i = 0; i < (int)angles.size(); i++) {
+        if (angles[i] < min_limits[i] || angles[i] > max_limits[i]) {
+            return false;
+        }
+    }
     return true;
 }
 

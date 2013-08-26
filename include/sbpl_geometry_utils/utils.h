@@ -25,6 +25,16 @@ bool NormalizeAnglesIntoRange(std::vector<double>& angles,
                               const std::vector<double>& min_limits,
                               const std::vector<double>& max_limits);
 
+/// @brief Return whether or not all joints are within their [min, max] limits.
+///        All input vectors must have the same length.
+/// @param[in] angles The vector of joint angles
+/// @param[in] min_limits The corresponding minimum joint angles
+/// @param[in] max_limits The corresponding maximum joint angles
+/// @return true if all joints are within their [min, max] limits; false otherwise
+bool AreJointsWithinLimits(const std::vector<double>& angles,
+                           const std::vector<double>& min_limits,
+                           const std::vector<double>& max_limits);
+
 /// @brief Return the shortest distance between two angles, in radians.
 double ShortestAngleDist(double a1_rad, double a2_rad);
 
