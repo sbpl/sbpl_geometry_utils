@@ -1,5 +1,4 @@
 #include <cmath>
-#include <iostream>
 #include <sbpl_geometry_utils/interpolation.h>
 #include <sbpl_geometry_utils/utils.h>
 
@@ -66,7 +65,7 @@ bool InterpolatePath(const std::vector<double>& start, const std::vector<double>
     // determine the directions in which we should interpolate the angles
     std::vector<int> travel_dirs(dim, 0);
     for (unsigned i = 0; i < dim; i++) {
-        double angle_diff = utils::ShortestAngleDiff(end_norm[i], start_norm[i]);
+        double angle_diff = -utils::ShortestAngleDiff(end_norm[i], start_norm[i]);
         if (continuous_joints[i]) {
             travel_dirs[i] = utils::Sign(angle_diff);
         }
@@ -82,7 +81,7 @@ bool InterpolatePath(const std::vector<double>& start, const std::vector<double>
 
     int max_iterations = 0;
     for (int i = 0; i < dim; i++) {
-        double angle_diff = utils::ShortestAngleDiff(end_norm[i], start_norm[i]);
+        double angle_diff = -utils::ShortestAngleDiff(end_norm[i], start_norm[i]);
 
         double angle_dist;
         if (continuous_joints[i]) {

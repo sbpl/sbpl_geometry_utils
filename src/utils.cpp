@@ -63,11 +63,11 @@ double ShortestAngleDiff(double a1_rad, double a2_rad)
     double a2_norm = NormalizeAngle(a2_rad, 0.0, 2.0 * M_PI);
 
     double dist = ShortestAngleDist(a1_rad, a2_rad);
-    if (fabs(NormalizeAngle(a1_norm + dist, 0.0, 2.0 * M_PI) - a2_norm) < 1e-4) {
-        return -dist;
+    if (ShortestAngleDist(a1_norm + dist, a2_norm) < ShortestAngleDist(a1_norm - dist, a2_norm)) {
+        return dist;
     }
     else {
-        return dist;
+        return -dist;
     }
 }
 
