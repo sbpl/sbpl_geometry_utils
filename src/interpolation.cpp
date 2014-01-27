@@ -65,7 +65,7 @@ bool InterpolatePath(const std::vector<double>& start, const std::vector<double>
     // determine the directions in which we should interpolate the angles
     std::vector<int> travel_dirs(dim, 0);
     for (unsigned i = 0; i < dim; i++) {
-        double angle_diff = -utils::ShortestAngleDiff(end_norm[i], start_norm[i]);
+        double angle_diff = utils::ShortestAngleDiff(end_norm[i], start_norm[i]);
         if (continuous_joints[i]) {
             travel_dirs[i] = utils::Sign(angle_diff);
         }
@@ -81,7 +81,7 @@ bool InterpolatePath(const std::vector<double>& start, const std::vector<double>
 
     int max_iterations = 0;
     for (int i = 0; i < dim; i++) {
-        double angle_diff = -utils::ShortestAngleDiff(end_norm[i], start_norm[i]);
+        double angle_diff = utils::ShortestAngleDiff(end_norm[i], start_norm[i]);
 
         double angle_dist;
         if (continuous_joints[i]) {
@@ -114,7 +114,7 @@ bool InterpolatePath(const std::vector<double>& start, const std::vector<double>
     for (int c = 0; c < max_iterations; c++) {
         // inch all the joint angles towards the end
         for (unsigned i = 0; i < dim; i++) {
-            double anglediff = utils::ShortestAngleDiff(curr_cfg[i], end_norm[i]);
+            double anglediff = utils::ShortestAngleDiff(end_norm[i], curr_cfg[i]);
 
             if (fabs(anglediff) < inc[i]) {
                 // add the last little bit to reach the end for this joint angle

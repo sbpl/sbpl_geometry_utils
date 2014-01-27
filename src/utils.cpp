@@ -79,10 +79,10 @@ double ShortestAngleDiff(double a1_rad, double a2_rad)
 
     double dist = ShortestAngleDist(a1_rad, a2_rad);
     if (ShortestAngleDist(a1_norm + dist, a2_norm) < ShortestAngleDist(a1_norm - dist, a2_norm)) {
-        return dist;
+        return -dist;
     }
     else {
-        return -dist;
+        return dist;
     }
 }
 
