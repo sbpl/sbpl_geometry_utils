@@ -24,6 +24,7 @@ add_library(sbpl_geometry_utils
             src/utils.cpp
             src/interpolation.cpp
             src/raster.cpp)
+set_target_properties(sbpl_geometry_utils PROPERTIES COMPILE_FLAGS "-std=c++0x")
 target_link_libraries(sbpl_geometry_utils ${catkin_LIBRARIES})
 
 install(TARGETS sbpl_geometry_utils

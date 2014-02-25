@@ -72,6 +72,23 @@ double ShortestAngleDist(double a1_rad, double a2_rad)
     return std::min(fabs(a1_norm - a2_norm), 2.0 * M_PI - fabs(a2_norm - a1_norm));
 }
 
+double ShortestAngleDistWithLimits(double a1_rad, double a2_rad, double min_angle, double max_angle)
+{
+    // normalize angles and check that they fall within [min_angle, max_angle]
+    double a1_norm = NormalizeAngle(a1_rad, min_angle, max_angle);
+    double a2_norm = NormalizeAngle(a2_rad, min_angle, max_angle);
+    if (!AreJointsWithinLimits({ a1_norm, a2_norm }, { min_angle, min_angle }, { max_angle, max_angle })) {
+        return -1.0;
+    }
+    double angle_diff = ShortestAngleDiff(a1_norm, a2_norm);
+    if (a2_norm + angle_diff > max_angle || a2_norm + angle_diff < min_angle) {
+        return 2.0 * M_PI - fabs(angle_diff);
+    }
+    else {
+        return fabs(angle_diff);
+    }
+}
+
 double ShortestAngleDiff(double a1_rad, double a2_rad)
 {
     double a1_norm = NormalizeAngle(a1_rad, 0.0, 2.0 * M_PI);

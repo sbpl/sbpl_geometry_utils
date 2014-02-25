@@ -38,6 +38,11 @@ bool AreJointsWithinLimits(const std::vector<double>& angles,
 /// @brief Return the shortest distance between two angles, in radians.
 double ShortestAngleDist(double a1_rad, double a2_rad);
 
+/// @brief Return the shortest distance between two angles, returning the
+///        distance of the major arc if traveling along the minor arc would
+///        violate the given angle limits.
+double ShortestAngleDistWithLimits(double a1_rad, double a2_rad, double min_angle, double max_angle);
+
 /// @brief Return the shortest signed difference between two angles, in radians. The returned value
 ///        is positive if to follow along the shortest angular path from a2 to a1, you have to move
 ///        counter-clockwise.
