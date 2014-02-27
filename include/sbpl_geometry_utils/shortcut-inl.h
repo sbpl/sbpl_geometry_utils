@@ -9,10 +9,6 @@ namespace sbpl
 namespace shortcut
 {
 
-/// @tparam PathContainer An stl-style container of path points where PathContainer::value_type is the point type
-/// @tparam CostsContainer An stl-style container of costs where CostsContainer::value_type is the cost type
-/// @tparam PathGeneratorsContainer An stl-style container of path generators where PathGeneratorsContainer::value_type is the path generator type that implements the PathGenerator interface
-/// @tparam ShortcutPathContainer An stl-style container where ShortcutPathContainer::value_type should be the same as for PathContainer
 template <
     typename PathContainer,
     typename CostsContainer,
@@ -24,6 +20,8 @@ bool ShortcutPath(
     const CostsContainer& orig_path_costs,
     const PathGeneratorsContainer& path_generators,
     ShortcutPathContainer& shortcut_path,
+    unsigned window,
+    unsigned granularity,
     const CostCompare& leq)
 {
     typedef typename PathContainer::value_type PointType;
@@ -86,9 +84,23 @@ bool ShortcutPath(
 
         if (cost_improved) {
             // advance curr_end to attempt further cost improvement
-            ++curr_end;
-            ++last_end;
-            ++end_index;
+            typename PathContainer::difference_type dist_to_end = std::distance(curr_end, orig_path.end());
+
+            if (dist_to_end == 1) {
+                curr_end = orig_path.end();
+                last_end = --orig_path.end();
+                end_index = orig_path.size();
+            }
+            else if (dist_to_end < granularity) {
+                std::advance(curr_end, dist_to_end - 1);
+                std::advance(last_end, dist_to_end - 1);
+                end_index += dist_to_end - 1;
+            }
+            else {
+                std::advance(curr_end, granularity);
+                std::advance(last_end, granularity);
+                end_index += granularity;
+            }
         }
         else {
             if (!result_traj.empty()) {
