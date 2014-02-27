@@ -39,7 +39,7 @@ bool ShortcutPath(
         return true;
     }
 
-    /// gather the accumulated original costs per point
+    // gather the accumulated original costs per point
     std::vector<CostType> accum_point_costs(orig_path.size());
     accum_point_costs[0] = 0.0;
     for (int i = 1; i < (int)accum_point_costs.size(); ++i) {
@@ -127,6 +127,116 @@ bool ShortcutPath(
 
     shortcut_path.assign(result_traj.begin(), result_traj.end());
     return true;
+}
+
+template <
+    typename PathContainerIt,
+    typename AccumCostsContainerIt,
+    typename PathGeneratorsContainer,
+    typename ShortcutPathContainer,
+    typename CostCompare>
+bool DivideAndConquerShortcutPath(
+    const PathContainerIt& orig_path_start,
+    const PathContainerIt& orig_path_end,
+    const AccumCostsContainerIt& cost_start,
+    const AccumCostsContainerIt& cost_end,
+    const PathGeneratorsContainer& path_generators,
+    ShortcutPathContainer& accum_shortcut_path,
+    const CostCompare& leq)
+{
+
+    typedef typename PathGeneratorsContainer::value_type PathGeneratorType;
+    typedef typename PathGeneratorType::PathContainer PathContainer;
+    typedef typename PathGeneratorType::Cost Cost;
+    typedef typename PathContainer::difference_type difference_type;
+
+    if (std::distance(orig_path_start, orig_path_end) == 1) {
+        // need to push back these two points
+        accum_shortcut_path.push_back(*orig_path_start);
+        accum_shortcut_path.push_back(*orig_path_end);
+        return true;
+    }
+    else {
+        bool cost_improved = false;
+        Cost best_cost = *cost_end - *cost_start;
+        PathContainer best_path;
+
+        // ask the path generators for a cheaper path between these two points
+        for (auto it = path_generators.cbegin(); it != path_generators.cend(); ++it) {
+            PathContainer path;
+            Cost cost;
+            if (it->generate_path(*orig_path_start, *orig_path_end, path, cost) && leq(cost, best_cost)) {
+                cost_improved = true;
+                best_cost = cost;
+                best_path.swap(path);
+            }
+        }
+
+        if (cost_improved) {
+            // store the result in the accumulated path
+            if (!accum_shortcut_path.empty()) {
+                accum_shortcut_path.pop_back();
+            }
+            accum_shortcut_path.insert(accum_shortcut_path.end(), best_path.begin(), best_path.end());
+            return true;
+        }
+        else {
+            // divide this segment in two and attempt to shortcut both halves
+            difference_type segment_size = std::distance(orig_path_start, orig_path_end);
+            auto mid = orig_path_start;
+            auto cost_mid = cost_start;
+            std::advance(mid, (segment_size >> 1));
+            std::advance(cost_mid, (segment_size >> 1));
+
+            DivideAndConquerShortcutPath(orig_path_start, mid, cost_start, cost_mid, path_generators, accum_shortcut_path, leq);
+            DivideAndConquerShortcutPath(mid, orig_path_end, cost_mid, cost_end, path_generators, accum_shortcut_path, leq);
+            return true;
+        }
+    }
+
+    return true;
+}
+
+template <
+    typename PathContainer,
+    typename CostsContainer,
+    typename PathGeneratorsContainer,
+    typename ShortcutPathContainer,
+    typename CostCompare>
+bool DivideAndConquerShortcutPath(
+    const PathContainer& orig_path,
+    const CostsContainer& orig_path_costs,
+    const PathGeneratorsContainer& path_generators,
+    ShortcutPathContainer& shortcut_path,
+    const CostCompare& leq)
+{
+    typedef typename PathContainer::value_type PointType;
+    typedef typename CostsContainer::value_type CostType;
+    typedef typename PathGeneratorsContainer::value_type PathGeneratorType;
+
+    // assert one cost per point transition
+    if (orig_path.size() != orig_path_costs.size() + 1) {
+        return false;
+    }
+
+    // nothing to do with a trivial path
+    if (orig_path.size() < 2) {
+        return true;
+    }
+
+    // gather the accumulated original costs per point
+    std::vector<CostType> accum_point_costs(orig_path.size());
+    accum_point_costs[0] = 0.0;
+    for (int i = 1; i < (int)accum_point_costs.size(); ++i) {
+        accum_point_costs[i] = accum_point_costs[i - 1] + orig_path_costs[i - 1];
+    }
+
+    typename PathContainer::const_iterator start = orig_path.cbegin();
+    typename PathContainer::const_iterator end = --orig_path.cend();
+    typename std::vector<CostType>::const_iterator costs_start = accum_point_costs.cbegin();
+    typename std::vector<CostType>::const_iterator costs_end = accum_point_costs.cend();
+
+    return DivideAndConquerShortcutPath(start, end, costs_start, costs_end, path_generators, shortcut_path, leq);
 }
 
 } // namespace shortcut

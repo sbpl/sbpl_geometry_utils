@@ -41,6 +41,18 @@ bool ShortcutPath(const PathContainer& orig_path,
                   unsigned granularity = 1,
                   const CostCompare& leq = CostCompare());
 
+template <typename PathContainer,
+          typename CostsContainer,
+          typename PathGeneratorsContainer,
+          typename ShortcutPathContainer,
+          typename CostCompare = std::less_equal<typename CostsContainer::value_type>>
+bool DivideAndConquerShortcutPath(const PathContainer& orig_path,
+                                  const CostsContainer& orig_path_costs,
+                                  const PathGeneratorsContainer& path_generators,
+                                  ShortcutPathContainer& shortcut_path,
+                                  const CostCompare& leq = CostCompare());
+
+
 } // namespace shortcut
 
 } // namespace sbpl
