@@ -1,5 +1,5 @@
-#ifndef sbpl_shortcutting_h
-#define sbpl_shortcutting_h
+#ifndef sbpl_shortcut_h
+#define sbpl_shortcut_h
 
 #include <functional>
 #include <vector>

@@ -1,7 +1,8 @@
-#ifndef sbpl_shortcutting_inl_h
-#define sbpl_shortcutting_inl_h
+#ifndef sbpl_shortcut_inl_h
+#define sbpl_shortcut_inl_h
 
 #include <sbpl_geometry_utils/shortcut.h>
+#include <iterator>
 
 namespace sbpl
 {
