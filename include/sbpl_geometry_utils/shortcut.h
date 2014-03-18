@@ -18,7 +18,12 @@ struct PathGenerator
     typedef CostType Cost;
     typedef PathContainerType PathContainer;
 
-    virtual bool generate_path(const PointType& start, const PointType& end, PathContainerType& path_out, CostType& costs_out) const = 0;
+    virtual ~PathGenerator() { }
+
+    virtual bool generate_path(const PointType& start,
+                               const PointType& end,
+                               PathContainerType& path_out,
+                               CostType& costs_out) const = 0;
 };
 
 /// @tparam PathContainer An stl-style container of path points where PathContainer::value_type is the point type
