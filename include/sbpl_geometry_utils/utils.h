@@ -54,6 +54,8 @@ bool NormalizeAnglesIntoRange(std::vector<double>& angles,
                               const std::vector<double>& min_limits,
                               const std::vector<double>& max_limits);
 
+bool IsJointWithinLimits(double angle, double min_angle, double max_angle);
+
 /// @brief Return whether or not all joints are within their [min, max] limits.
 ///        All input vectors must have the same length.
 /// @param[in] angles The vector of joint angles
@@ -72,12 +74,15 @@ double ShortestAngleDist(double a1_rad, double a2_rad);
 ///        violate the given angle limits.
 double ShortestAngleDistWithLimits(double a1_rad, double a2_rad, double min_angle, double max_angle);
 
+double ShortestAngleDiffWithLimits(double a1_rad, double a2_rad, double min_angle, double max_angle);
+
 /// @brief Return the shortest signed difference between two angles, in radians. The returned value
 ///        is positive if to follow along the shortest angular path from a2 to a1, you have to move
 ///        counter-clockwise.
 double ShortestAngleDiff(double a1_rad, double a2_rad);
 
-int Sign(double val);
+int Sign(int val);
+double Signd(double val);
 
 double ToDegrees(double angle_rad);
 double ToRadians(double angle_deg);

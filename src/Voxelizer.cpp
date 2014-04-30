@@ -1307,8 +1307,8 @@ void VoxelizePlane(double a, double b, double c, double d, double voxel_size,
                 double voxel_x = x + 0.5;
                 double voxel_y = y + 0.5;
                 double voxel_z = z + 0.5;
-                if (utils::Sign(a * voxel_x + b * voxel_y + c * voxel_z + (d + t)) !=
-                    utils::Sign(a * voxel_x + b * voxel_y + c * voxel_z + (d - t)))
+                if (utils::Signd(a * voxel_x + b * voxel_y + c * voxel_z + (d + t)) !=
+                    utils::Signd(a * voxel_x + b * voxel_y + c * voxel_z + (d - t)))
                 {
                     // voxel lies between two points
                     grid[width * height * z + width * y + x] = 1;
@@ -1454,7 +1454,7 @@ void VoxelizeTriangle(const geometry_msgs::Point& p1, const geometry_msgs::Point
                     // then check for inside the triangle
                     if ((
                             // inside triangle thickness
-                            utils::Sign(n.dot(voxel_p) + (d + t)) != utils::Sign(n.dot(voxel_p) + (d - t))
+                            utils::Signd(n.dot(voxel_p) + (d + t)) != utils::Signd(n.dot(voxel_p) + (d - t))
                         ) &&
                         (
                             // inside the edge bounding planes

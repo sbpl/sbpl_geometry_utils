@@ -96,14 +96,14 @@ bool InterpolatePath(const std::vector<double>& start, const std::vector<double>
     for (unsigned i = 0; i < dim; i++) {
         double angle_diff = utils::ShortestAngleDiff(end_norm[i], start_norm[i]);
         if (continuous_joints[i]) {
-            travel_dirs[i] = utils::Sign(angle_diff);
+            travel_dirs[i] = (int)utils::Signd(angle_diff);
         }
         else {
             if (start_norm[i] + angle_diff > max_limits[i] || start_norm[i] + angle_diff < min_limits[i]) {
-                travel_dirs[i] = -utils::Sign(angle_diff);
+                travel_dirs[i] = (int)-utils::Signd(angle_diff);
             }
             else {
-                travel_dirs[i] = utils::Sign(angle_diff);
+                travel_dirs[i] = (int)utils::Signd(angle_diff);
             }
         }
     }

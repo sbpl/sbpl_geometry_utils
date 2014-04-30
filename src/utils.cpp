@@ -37,10 +37,11 @@ namespace sbpl
     namespace utils
     {
 
+
 double NormalizeAngle(double angle_rad, double angle_min_rad, double angle_max_rad)
 {
     if (fabs(angle_rad) > 2.0 * M_PI) { // normalize to [-2*pi, 2*pi] range
-        angle_rad -= ((int)(angle_rad / (2.0 * M_PI))) * 2.0 * M_PI;
+        angle_rad = fmod(angle_rad, 2.0 * M_PI);
     }
 
     while (angle_rad > angle_max_rad) {
@@ -48,7 +49,7 @@ double NormalizeAngle(double angle_rad, double angle_min_rad, double angle_max_r
     }
 
     while (angle_rad < angle_min_rad) {
-        angle_rad += 2 * M_PI;
+        angle_rad += 2.0 * M_PI;
     }
 
     return angle_rad;
@@ -80,6 +81,11 @@ bool NormalizeAnglesIntoRange(std::vector<double>& angles,
     return true;
 }
 
+bool IsJointWithinLimits(double angle, double min_angle, double max_angle)
+{
+    return !(angle < min_angle || angle > max_angle);
+}
+
 bool AreJointsWithinLimits(const std::vector<double>& angles,
                            const std::vector<double>& min_limits,
                            const std::vector<double>& max_limits)
@@ -87,7 +93,7 @@ bool AreJointsWithinLimits(const std::vector<double>& angles,
     assert(min_limits.size() == angles.size() && max_limits.size() == angles.size());
 
     for (int i = 0; i < (int)angles.size(); i++) {
-        if (angles[i] < min_limits[i] || angles[i] > max_limits[i]) {
+        if (!IsJointWithinLimits(angles[i], min_limits[i], max_limits[i])) {
             return false;
         }
     }
@@ -118,6 +124,26 @@ double ShortestAngleDistWithLimits(double a1_rad, double a2_rad, double min_angl
     }
 }
 
+double ShortestAngleDiffWithLimits(double a1_rad, double a2_rad, double min_angle, double max_angle)
+{
+    // normalize angles and check that they fall within [min_angle, max_angle]
+
+    double a1_norm = NormalizeAngle(a1_rad, min_angle, max_angle);
+    double a2_norm = NormalizeAngle(a2_rad, min_angle, max_angle);
+
+    if (!IsJointWithinLimits(a1_norm, min_angle, max_angle) || !IsJointWithinLimits(a2_norm, min_angle, max_angle)) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    double angle_diff = ShortestAngleDiff(a1_norm, a2_norm);
+    if (a2_norm + angle_diff > max_angle || a2_norm + angle_diff < min_angle) {
+        return -Signd(angle_diff) * (2.0 * M_PI - fabs(angle_diff));
+    }
+    else {
+        return angle_diff;
+    }
+}
+
 double ShortestAngleDiff(double a1_rad, double a2_rad)
 {
     double a1_norm = NormalizeAngle(a1_rad, 0.0, 2.0 * M_PI);
@@ -132,14 +158,28 @@ double ShortestAngleDiff(double a1_rad, double a2_rad)
     }
 }
 
-int Sign(double val)
+template <typename T>
+T SignT(T val)
 {
-    if (val >= 0.0) {
-        return 1;
+    if (val == 0) {
+        return 0;
+    }
+    else if (val > 0) {
+        return T(1);
     }
     else {
-        return -1;
+        return T(-1);
     }
+}
+
+int Sign(int val)
+{
+    return SignT(val);
+}
+
+double Signd(double val)
+{
+    return SignT(val);
 }
 
 double ToDegrees(double angle_rad)
