@@ -35,12 +35,179 @@
 namespace sbpl
 {
 
-PathSimilarityMeasurer::~PathSimilarityMeasurer()
+namespace stats
 {
+
+namespace
+{
+
+/// Compute the distance between two points.
+double distance(const geometry_msgs::Point& p, const geometry_msgs::Point& q);
+double distance_sqrd(const geometry_msgs::Point& p, const geometry_msgs::Point& q);
+
+/// Compute the total length of a path.
+double compute_path_length(const Path& p);
+
+/// Add or remove points from a path so that the resulting path has a given number of waypoints. Samples points are
+/// determined by linear interpolation between given waypoints.
+Path interpolate_path(const Path& p, int num_waypoints);
+
+double distance(const geometry_msgs::Point& p, const geometry_msgs::Point& q)
+{
+    return sqrt(distance_sqrd(p, q));
 }
 
-double PathSimilarityMeasurer::measure(const std::vector<const Trajectory*>& trajectories,
-                                       int numWaypoints)
+double distance_sqrd(const geometry_msgs::Point& p, const geometry_msgs::Point& q)
+{
+    double dx = p.x - q.x;
+    double dy = p.y - q.y;
+    double dz = p.z - q.z;
+    return dx * dx + dy * dy + dz * dz;
+}
+
+double compute_path_length(const Path& path)
+{
+    if (path.size() < 2) {
+        return 0.0;
+    }
+
+    double path_length = 0.0;
+    for (unsigned i = 1; i < path.size(); i++) {
+        const geometry_msgs::Point& p = path[i - 1];
+        const geometry_msgs::Point& q = path[i];
+        path_length += distance(p, q);
+    }
+    return path_length;
+}
+
+geometry_msgs::Point interpolate(const geometry_msgs::Point& p, const geometry_msgs::Point& q, double alpha)
+{
+    geometry_msgs::Point out;
+    out.x = (1.0 - alpha) * p.x + alpha * q.x;
+    out.y = (1.0 - alpha) * p.y + alpha * q.y;
+    out.z = (1.0 - alpha) * p.z + alpha * q.z;
+    return out;
+}
+
+Path interpolate_path(const Path& path, int num_waypoints)
+{
+    Path ret;
+    if (num_waypoints < 2) {
+        return ret;
+    }
+
+    ret.reserve(num_waypoints);
+
+    const double path_length = compute_path_length(path);
+    double path_inc = path_length / (num_waypoints - 1);
+
+    // keep the same start point
+    ret.push_back(path.front());
+    int num_placed_waypoints = 1;
+
+    int passed_wp = 0;
+
+    // generate the new waypoints
+    while (num_placed_waypoints != num_waypoints) {
+        // push back the last waypoint and return
+        if (num_placed_waypoints == num_waypoints - 1) {
+            ret.push_back(path.back());
+            break;
+        }
+
+        double dist_between_actual_wps = distance(path[passed_wp], path[passed_wp + 1]);
+        double dist_until_next_wp = distance(ret.back(), path[passed_wp + 1]);
+
+        if (path_inc < dist_until_next_wp) {
+            // find a spot between the last placed waypoint and the next original waypoint further along the path
+
+            double alpha = path_inc / dist_until_next_wp;
+
+            // calculate the point between our most latest waypoint and the next one we want
+            // to generate
+            geometry_msgs::Point p = interpolate(ret.back(), path[passed_wp + 1], alpha);
+
+            ret.push_back(p);
+            num_placed_waypoints++;
+        }
+        else {
+            // need to find what waypoints we are now in interpolating between
+
+            passed_wp++; // we passed another of the actual waypoints
+            dist_between_actual_wps = distance(path[passed_wp], path[passed_wp + 1]);
+
+            double new_dist = path_inc - dist_until_next_wp;
+
+            // there may still be waypoints to pass
+            while (new_dist > distance(path[passed_wp], path[passed_wp + 1])) {
+                new_dist -= distance(path[passed_wp], path[passed_wp + 1]);
+                passed_wp++;
+                dist_between_actual_wps = distance(path[passed_wp], path[passed_wp + 1]);
+            }
+
+            double alpha = new_dist / dist_between_actual_wps;
+
+            geometry_msgs::Point p = interpolate(path[passed_wp], path[passed_wp + 1], alpha);
+
+            ret.push_back(p);
+            num_placed_waypoints++;
+        }
+    }
+
+    return ret;
+}
+
+} // empty namespace
+
+ConstPathRange entire_path(const Path& p)
+{
+    return ConstPathRange(p.cbegin(), p.cend());
+}
+
+double measure_path_similarity(
+    const std::vector<ConstPathRange>& paths,
+    int num_waypoints)
+{
+    if (paths.empty()) {
+        return 0.0;
+    }
+
+    if (num_waypoints < 2 || paths.size() < 2) {
+        // deficient number of points/paths for comparison
+        return -1.0;
+    }
+
+    // 1. reinterpolate all trajectories
+    std::vector<Path> interp_trajectories;
+    interp_trajectories.reserve(paths.size());
+    for (const ConstPathRange& pends : paths) {
+        // TODO: eliminate the need to create a complete copy of each path here.
+        Path p;
+        for (auto pit = pends.first; pit != pends.second; ++pit) {
+            p.push_back(*pit);
+        }
+        interp_trajectories.push_back(interpolate_path(p, num_waypoints));
+    }
+
+    int num_comparisons = 0;
+    double total_cost = 0.0;
+    for (size_t i = 0; i < interp_trajectories.size(); ++i) {
+        for (size_t j = i + 1; j < interp_trajectories.size(); ++j) {
+            const Path& p1 = interp_trajectories[i];
+            const Path& p2 = interp_trajectories[j];
+            total_cost += dynamic_time_warping(p1.cbegin(), p1.cend(), p2.cbegin(), p2.cend(), distance);
+            ++num_comparisons;
+        }
+    }
+
+    return total_cost / num_comparisons;
+}
+
+} // namespace stats
+
+double PathSimilarityMeasurer::measure(
+    const std::vector<const Trajectory*>& trajectories,
+    int numWaypoints)
 {
     // check for invalid number of waypoints or empty list of trajectories
     if (numWaypoints < 2 || trajectories.size() == 0) {
@@ -115,208 +282,52 @@ double PathSimilarityMeasurer::measure(const std::vector<const Trajectory*>& tra
 
 double PathSimilarityMeasurer::measureDTW(const std::vector<const Trajectory*>& trajectories, int numWaypoints)
 {
-    // check for invalid number of waypoints or empty list of trajectories
-    if (numWaypoints < 2 || trajectories.size() == 0) {
-        return -1.0;
+    std::vector<sbpl::stats::ConstPathRange> path_ends;
+    path_ends.reserve(trajectories.size());
+    for (const Trajectory* traj : trajectories) {
+        path_ends.push_back(sbpl::stats::entire_path(*traj));
     }
-
-    // check to make sure all trajectories are non-NULL
-    for (int i = 0; i < (int)trajectories.size(); i++) {
-        if (trajectories[i] == NULL) {
-            return -1.0;
-        }
-    }
-
-    std::vector<double> pathLengths(trajectories.size(), 0);
-
-    // calculate pathLengths
-    for (unsigned i = 0; i < trajectories.size(); i++) {
-        pathLengths[i] = calcPathLength(*(trajectories[i]));
-    }
-
-    // calculate a new trajectories representing the old trajectories but having the same amount of
-    // waypoints each
-    std::vector<Trajectory> newTrajs;
-    newTrajs.reserve(trajectories.size());
-    for (unsigned i = 0; i < trajectories.size(); i++) {
-        newTrajs.push_back(Trajectory());
-        generateNewWaypoints(*trajectories[i], pathLengths[i], numWaypoints, newTrajs[i]);
-    }
-
-    // make sure we actually have numWaypoints for each path
-    for (int i = 0; i < (int)newTrajs.size(); i++) {
-        assert((int)newTrajs[i].size() == numWaypoints);
-    }
-
-    double totalSimilarity = 0.0;
-    int numPairs = 0;
-
-    // for every pair of trajectories
-    for (unsigned t1 = 0; t1 < newTrajs.size(); t1++) {
-        for (unsigned t2 = t1 + 1; t2 < newTrajs.size(); t2++) {
-            totalSimilarity += compareDTW(newTrajs[t1], newTrajs[t2]);
-            numPairs++;
-        }
-    }
-
-    std::cout << "totalSimilarity: " << totalSimilarity << " numPairs: " << numPairs << std::endl;
-
-    return totalSimilarity / numPairs;
-}
-
-PathSimilarityMeasurer::PathSimilarityMeasurer()
-{
+    return sbpl::stats::measure_path_similarity(path_ends, numWaypoints);
 }
 
 double PathSimilarityMeasurer::euclidDist(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2)
 {
-    return sqrt(distSqrd(p1, p2));
+    return sbpl::stats::distance(p1, p2);
 }
 
 double PathSimilarityMeasurer::distSqrd(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2)
 {
-    double dx = p2.x - p1.x;
-    double dy = p2.y - p1.y;
-    double dz = p2.z - p1.z;
-    return dx * dx + dy * dy + dz * dz;
+    return sbpl::stats::distance_sqrd(p1, p2);
 }
 
 double PathSimilarityMeasurer::calcPathLength(const Trajectory& traj)
 {
-    if (traj.size() < 2) {
-        return 0.0;
-    }
-
-    double pathLength = 0.0;
-    for (unsigned i = 1; i < traj.size(); i++) {
-        const geometry_msgs::Point& p1 = traj[i - 1];
-        const geometry_msgs::Point& p2 = traj[i];
-        pathLength += euclidDist(p1, p2);
-    }
-    return pathLength;
+    return sbpl::stats::compute_path_length(traj);
 }
 
-bool PathSimilarityMeasurer::generateNewWaypoints(const Trajectory& traj, double pathLength,
-                                                  int numWaypoints, Trajectory& newTraj)
+bool PathSimilarityMeasurer::generateNewWaypoints(
+    const Trajectory& traj,
+    double pathLength,
+    int numWaypoints,
+    Trajectory& newTraj)
 {
-    if (numWaypoints < 2) {
-        newTraj.clear();
-        return false;
-    }
-
-    newTraj.reserve(numWaypoints);
-
-    double pathInc = pathLength / (numWaypoints - 1);
-
-    // keep the same start point
-    newTraj.push_back(traj.front());
-    int numPlacedWaypoints = 1;
-
-    int passedWaypoint = 0;
-
-    // generate the new waypoints
-    while (numPlacedWaypoints != numWaypoints) {
-        // push back the last waypoint and return
-        if (numPlacedWaypoints == numWaypoints - 1) {
-            newTraj.push_back(traj.back());
-            break;
-        }
-
-        double distBetweenActualWaypoints = euclidDist(traj[passedWaypoint], traj[passedWaypoint + 1]);
-        double distUntilNextWaypoint = euclidDist(newTraj.back(), traj[passedWaypoint + 1]);
-
-        // find a spot between the last placed waypoint and the next original waypoint further along the path
-        if (pathInc < distUntilNextWaypoint) {
-            double alpha = pathInc / distUntilNextWaypoint;
-
-            // calculate the point between our most latest waypoint and the next one we want
-            // to generate
-            double x = (1.0 - alpha) * newTraj.back().x + alpha * traj[passedWaypoint + 1].x;
-            double y = (1.0 - alpha) * newTraj.back().y + alpha * traj[passedWaypoint + 1].y;
-            double z = (1.0 - alpha) * newTraj.back().z + alpha * traj[passedWaypoint + 1].z;
-            geometry_msgs::Point p;
-            p.x = x; p.y = y; p.z = z;
-
-            newTraj.push_back(p);
-            numPlacedWaypoints++;
-        }
-        // need to find what waypoints we are now in interpolating between
-        else {
-            passedWaypoint++; // we passed another of the actual waypoints
-            distBetweenActualWaypoints = euclidDist(traj[passedWaypoint], traj[passedWaypoint + 1]);
-
-            double newDist = pathInc - distUntilNextWaypoint;
-
-            // there may still be waypoints to pass
-            while (newDist > euclidDist(traj[passedWaypoint], traj[passedWaypoint + 1])) {
-                newDist -= euclidDist(traj[passedWaypoint], traj[passedWaypoint + 1]);
-                passedWaypoint++;
-                distBetweenActualWaypoints = euclidDist(traj[passedWaypoint], traj[passedWaypoint + 1]);
-            }
-
-            double alpha = newDist / distBetweenActualWaypoints;
-
-            double x = (1.0 - alpha) * traj[passedWaypoint].x + alpha * traj[passedWaypoint + 1].x;
-            double y = (1.0 - alpha) * traj[passedWaypoint].y + alpha * traj[passedWaypoint + 1].y;
-            double z = (1.0 - alpha) * traj[passedWaypoint].z + alpha * traj[passedWaypoint + 1].z;
-            geometry_msgs::Point p;
-            p.x = x; p.y = y; p.z = z;
-
-            newTraj.push_back(p);
-            numPlacedWaypoints++;
-        }
-    }
-
+    newTraj = sbpl::stats::interpolate_path(traj, numWaypoints);
     return true;
 }
 
 double PathSimilarityMeasurer::compareDTW(const Trajectory& traj1, const Trajectory& traj2)
 {
-    // allocate memory for dynamic programming
-    const double DTW_INFINITE = std::numeric_limits<double>::max();
+    return sbpl::stats::dynamic_time_warping(
+            traj1.cbegin(), traj1.cend(), traj2.cbegin(), traj2.cend(), sbpl::stats::distance);
+}
 
-    double** dtw = new double*[traj1.size()];
-    for (unsigned i = 0; i < traj1.size(); i++) {
-        dtw[i] = new double[traj2.size()];
-    }
-
-    // initialize dtw
-    for (unsigned i = 1; i < traj1.size(); i++) {
-        dtw[i][0] = DTW_INFINITE;
-    }
-    for (unsigned i = 1; i < traj2.size(); i++) {
-        dtw[0][i] = DTW_INFINITE;
-    }
-    dtw[0][0] = 0.0;
-
-    for (int i = 1; i < (int)traj1.size(); i++) {
-        for (int j = 1; j < (int)traj2.size(); j++) {
-            const geometry_msgs::Point& p1 = traj1[i];
-            const geometry_msgs::Point& p2 = traj2[j];
-
-            // calculate the average point between point i on path one and point j on path two
-            geometry_msgs::Point averagePt;
-            averagePt.x = averagePt.y = averagePt.z = 0.0;
-            averagePt.x = (p1.x + p2.x) / 2.0;
-            averagePt.y = (p1.y + p2.y) / 2.0;
-            averagePt.z = (p1.z + p2.z) / 2.0;
-
-            // cost between points is the computed as their variance from the midpoint
-            double cost = distSqrd(p1, averagePt) + distSqrd(p2, averagePt);
-
-            // dynamic programming funkiness
-            dtw[i][j] = cost + std::min(dtw[i - 1][j - 1], std::min(dtw[i - 1][j], dtw[i][j - 1]));
-        }
-    }
-
-    double similarity = dtw[traj1.size() - 1][traj2.size() - 1];
-
-    for (unsigned i = 0; i < traj1.size(); i++) {
-        delete dtw[i];
-    }
-    delete dtw;
-
-    return similarity;
+double PathSimilarityMeasurer::weird_distance(const geometry_msgs::Point& p, const geometry_msgs::Point& q)
+{
+    geometry_msgs::Point averagePt;
+    averagePt.x = (p.x + q.x) / 2.0;
+    averagePt.y = (p.y + q.y) / 2.0;
+    averagePt.z = (p.z + q.z) / 2.0;
+    return distSqrd(p, averagePt) + distSqrd(q, averagePt);
 }
 
 std::ostream& operator<<(std::ostream& o, const geometry_msgs::Point& p)
