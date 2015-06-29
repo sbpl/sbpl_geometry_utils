@@ -226,9 +226,13 @@ public:
      * @param[out] voxels The vector in which to store the voxels
      * @param[out] volume The combined volume of all the spheres
      */
-    static void voxelizeSphereListQAD(const std::vector<std::vector<double> >& spheres, double res,
-                                      bool removeDuplicates, std::vector<std::vector<double> >& voxels,
-                                      double& volume, bool fillMesh = false);
+    static void voxelizeSphereListQAD(
+            const std::vector<std::vector<double> >& spheres,
+            double res,
+            bool removeDuplicates,
+            std::vector<std::vector<double> >& voxels,
+            double& volume,
+            bool fillMesh = false);
 
 private:
     Voxelizer();
