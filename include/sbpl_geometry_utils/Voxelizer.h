@@ -41,6 +41,7 @@
 
 namespace sbpl {
 
+/// \brief Voxelize a box at the origin
 void VoxelizeBox(
     double length,
     double width,
@@ -49,6 +50,7 @@ void VoxelizeBox(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
+/// \brief Voxelize a box at a given pose
 void VoxelizeBox(
     double length,
     double width,
@@ -58,12 +60,33 @@ void VoxelizeBox(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
+void VoxelizeBox(
+    double length,
+    double width,
+    double height,
+    double res,
+    const Eigen::Vector3d& voxel_origin,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill = false);
+
+void VoxelizeBox(
+    double length,
+    double width,
+    double height,
+    const Eigen::Affine3d& pose,
+    double res,
+    const Eigen::Vector3d& voxel_origin,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill = false);
+
+/// \brief Voxelize a sphere at the origin
 void VoxelizeSphere(
     double radius,
     double res,
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
+/// \brief Voxelize a sphere at a given pose
 void VoxelizeSphere(
     double radius,
     const Eigen::Affine3d& pose,
@@ -71,6 +94,26 @@ void VoxelizeSphere(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
+/// \brief Voxelize a sphere at the origin using a specified origin for the
+///     voxel grid
+void VoxelizeSphere(
+    double radius,
+    double res,
+    const Eigen::Vector3d& voxel_origin,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill = false);
+
+/// \brief Voxelize a sphere at a given pose using a specified origin for the
+///     voxel grid
+void VoxelizeSphere(
+    double radius,
+    const Eigen::Affine3d& pose,
+    double res,
+    const Eigen::Vector3d& voxel_origin,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill = false);
+
+/// \brief Voxelize a cylinder at the origin
 void VoxelizeCylinder(
     double radius, 
     double height,
@@ -78,6 +121,7 @@ void VoxelizeCylinder(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
+/// \brief Voxelize a cylinder at a given pose
 void VoxelizeCylinder(
     double radius, 
     double height,
@@ -86,6 +130,28 @@ void VoxelizeCylinder(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
+/// \brief Voxelize a cylinder at the origin using a specified origin for the
+///     voxel grid
+void VoxelizeCylinder(
+    double radius, 
+    double height,
+    double res,
+    const Eigen::Vector3d& voxel_origin,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill = false);
+
+/// \brief Voxelize a cylinder at a given pose using a specified origin for the
+///     voxel grid
+void VoxelizeCylinder(
+    double radius, 
+    double height,
+    const Eigen::Affine3d& pose,
+    double res,
+    const Eigen::Vector3d& voxel_origin,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill = false);
+
+/// \brief Voxelize a mesh at the origin
 void VoxelizeMesh(
     const std::vector<Eigen::Vector3d>& vertices,
     const std::vector<int>& indices,
@@ -93,6 +159,7 @@ void VoxelizeMesh(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
+/// \brief Voxelize a mesh at a given pose
 void VoxelizeMesh(
     const std::vector<Eigen::Vector3d>& vertices,
     const std::vector<int>& indices,
@@ -101,11 +168,24 @@ void VoxelizeMesh(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
+/// \brief Voxelize a mesh at the origin using a specified origin for the voxel
+///     grid
 void VoxelizeMesh(
     const std::vector<Eigen::Vector3d>& vertices,
     const std::vector<int>& indices,
-    const Eigen::Vector3d& origin,
     double res,
+    const Eigen::Vector3d& voxel_origin,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill = false);
+
+/// \brief Voxelize a mesh at a given pose using a specified origin for the
+///     voxel grid
+void VoxelizeMesh(
+    const std::vector<Eigen::Vector3d>& vertices,
+    const std::vector<int>& indices,
+    const Eigen::Affine3d& pose,
+    double res,
+    const Eigen::Vector3d& voxel_origin,
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 

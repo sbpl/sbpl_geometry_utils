@@ -66,6 +66,13 @@ static void VoxelizeTriangle(
     VoxelGridBase<Discretizer>& vg);
 
 template <typename Discretizer>
+static void VoxelizeMesh(
+    const std::vector<Eigen::Vector3d>& vertices,
+    const std::vector<int>& indices,
+    VoxelGridBase<Discretizer>& vg,
+    bool fill = false);
+
+template <typename Discretizer>
 static void VoxelizeMeshAwesome(
     const std::vector<Eigen::Vector3d>& vertices,
     const std::vector<int>& indices,
@@ -76,6 +83,11 @@ void VoxelizeMeshNaive(
     const std::vector<Eigen::Vector3d>& vertices,
     const std::vector<int>& triangles,
     VoxelGridBase<Discretizer>& vg);
+
+template <typename Discretizer>
+void ExtractVoxels(
+    const VoxelGridBase<Discretizer>& vg,
+    std::vector<Eigen::Vector3d>& voxels);
 
 /// \brief Create a mesh representation of box
 /// The box mesh is axis-aligned and located at the origin.
@@ -322,6 +334,26 @@ void VoxelizeTriangle(
 }
 
 template <typename Discretizer>
+static void VoxelizeMesh(
+    const std::vector<Eigen::Vector3d>& vertices,
+    const std::vector<int>& indices,
+    VoxelGridBase<Discretizer>& vg,
+    bool fill)
+{
+    const bool awesome = true;
+    if (awesome) {
+        VoxelizeMeshAwesome(vertices, indices, vg);
+    }
+    else {
+        VoxelizeMeshNaive(vertices, indices, vg);
+    }
+
+    if (fill) {
+        ScanFill(vg);
+    }
+}
+
+template <typename Discretizer>
 void VoxelizeMeshAwesome(
     const std::vector<Eigen::Vector3d>& vertices,
     const std::vector<int>& indices,
@@ -388,6 +420,24 @@ void VoxelizeMeshNaive(
                 Intersects(triangle, voxel_mesh[a]))
             {
                 vg[mi] = true;
+            }
+        }
+    }
+}
+
+template <typename Discretizer>
+void ExtractVoxels(
+    const VoxelGridBase<Discretizer>& vg,
+    std::vector<Eigen::Vector3d>& voxels)
+{
+    for (int x = 0; x < vg.sizeX(); x++) {
+        for (int y = 0; y < vg.sizeY(); y++) {
+            for (int z = 0; z < vg.sizeZ(); z++) {
+                MemoryCoord mc(x, y, z);
+                if (vg[mc]) {
+                    WorldCoord wc = vg.memoryToWorld(mc);
+                    voxels.push_back(Eigen::Vector3d(wc.x, wc.y, wc.z));
+                }
             }
         }
     }
@@ -1353,10 +1403,40 @@ void VoxelizeBox(
     std::vector<Eigen::Vector3d> vertices;
     std::vector<int> triangles;
     CreateIndexedBoxMesh(length, width, height, vertices, triangles);
-
     TransformVertices(pose, vertices);
-
     VoxelizeMesh(vertices, triangles, res, voxels, fill);
+}
+
+void VoxelizeBox(
+    double length,
+    double width,
+    double height,
+    double res,
+    const Eigen::Vector3d& voxel_origin,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill)
+{
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> triangles;
+    CreateIndexedBoxMesh(length, width, height, vertices, triangles);
+    VoxelizeMesh(vertices, triangles, res, voxel_origin, voxels, fill);
+}
+
+void VoxelizeBox(
+    double length,
+    double width,
+    double height,
+    const Eigen::Affine3d& pose,
+    double res,
+    const Eigen::Vector3d& voxel_origin,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill)
+{
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> triangles;
+    CreateIndexedBoxMesh(length, width, height, vertices, triangles);
+    TransformVertices(pose, vertices);
+    VoxelizeMesh(vertices, triangles, res, voxel_origin, voxels, fill);
 }
 
 void VoxelizeSphere(
@@ -1369,7 +1449,6 @@ void VoxelizeSphere(
     std::vector<Eigen::Vector3d> vertices;
     std::vector<int> triangles;
     CreateIndexedSphereMesh(radius, 7, 8, vertices, triangles);
-
     VoxelizeMesh(vertices, triangles, res, voxels, fill);
 }
 
@@ -1384,10 +1463,38 @@ void VoxelizeSphere(
     std::vector<Eigen::Vector3d> vertices;
     std::vector<int> triangles;
     CreateIndexedSphereMesh(radius, 7, 8, vertices, triangles);
-
     TransformVertices(pose, vertices);
-
     VoxelizeMesh(vertices, triangles, res, voxels, fill);
+}
+
+void VoxelizeSphere(
+    double radius,
+    double res,
+    const Eigen::Vector3d& voxel_origin,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill)
+{
+    // TODO: make lng_count and lat_count lines configurable or parameters
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> triangles;
+    CreateIndexedSphereMesh(radius, 7, 8, vertices, triangles);
+    VoxelizeMesh(vertices, triangles, res, voxel_origin, voxels, fill);
+}
+
+void VoxelizeSphere(
+    double radius,
+    const Eigen::Affine3d& pose,
+    double res,
+    const Eigen::Vector3d& voxel_origin,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill)
+{
+    // TODO: make lng_count and lat_count lines configurable or parameters
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> triangles;
+    CreateIndexedSphereMesh(radius, 7, 8, vertices, triangles);
+    TransformVertices(pose, vertices);
+    VoxelizeMesh(vertices, triangles, res, voxel_origin, voxels, fill);
 }
 
 void VoxelizeCylinder(
@@ -1401,7 +1508,6 @@ void VoxelizeCylinder(
     std::vector<Eigen::Vector3d> vertices;
     std::vector<int> triangles;
     CreateIndexedCylinderMesh(radius, length, vertices, triangles);
-
     VoxelizeMesh(vertices, triangles, res, voxels, fill);
 }
 
@@ -1417,10 +1523,40 @@ void VoxelizeCylinder(
     std::vector<Eigen::Vector3d> vertices;
     std::vector<int> triangles;
     CreateIndexedCylinderMesh(radius, length, vertices, triangles);
-
     TransformVertices(pose, vertices);
-    
     VoxelizeMesh(vertices, triangles, res, voxels, fill);
+}
+
+void VoxelizeCylinder(
+    double radius, 
+    double height,
+    double res,
+    const Eigen::Vector3d& voxel_origin,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill)
+{
+    // TODO: make rim_count configurable or parameters
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> triangles;
+    CreateIndexedCylinderMesh(radius, height, vertices, triangles);
+    VoxelizeMesh(vertices, triangles, res, voxel_origin, voxels, fill);
+}
+
+void VoxelizeCylinder(
+    double radius, 
+    double height,
+    const Eigen::Affine3d& pose,
+    double res,
+    const Eigen::Vector3d& voxel_origin,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill)
+{
+    // TODO: make rim_count configurable or parameters
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> triangles;
+    CreateIndexedCylinderMesh(radius, height, vertices, triangles);
+    TransformVertices(pose, vertices);
+    VoxelizeMesh(vertices, triangles, res, voxel_origin, voxels, fill);
 }
 
 void VoxelizeMesh(
@@ -1447,29 +1583,8 @@ void VoxelizeMesh(
     const Eigen::Vector3d size = max - min;
     HalfResVoxelGrid vg(min, size, Eigen::Vector3d(res, res, res));
 
-    const bool awesome = true;
-    if (awesome) {
-        VoxelizeMeshAwesome(vertices, indices, vg);
-    }
-    else {
-        VoxelizeMeshNaive(vertices, indices, vg);
-    }
-
-    if (fill) {
-        ScanFill(vg);
-    }
-
-    for (int x = 0; x < vg.sizeX(); x++) {
-        for (int y = 0; y < vg.sizeY(); y++) {
-            for (int z = 0; z < vg.sizeZ(); z++) {
-                MemoryCoord mc(x, y, z);
-                if (vg[mc]) {
-                    WorldCoord wc = vg.memoryToWorld(mc);
-                    voxels.push_back(Eigen::Vector3d(wc.x, wc.y, wc.z));
-                }
-            }
-        }
-    }
+    VoxelizeMesh(vertices, indices, vg, fill);
+    ExtractVoxels(vg, voxels);
 }
 
 void VoxelizeMesh(
@@ -1488,12 +1603,44 @@ void VoxelizeMesh(
 void VoxelizeMesh(
     const std::vector<Eigen::Vector3d>& vertices,
     const std::vector<int>& triangles,
-    const Eigen::Vector3d& origin,
     double res,
+    const Eigen::Vector3d& voxel_origin,
     std::vector<Eigen::Vector3d>& voxels,
     bool fill)
 {
-    // TODO: voxelize with a minimum-aligned discretization policy
+    if (((int)triangles.size()) % 3 != 0) {
+        std::cerr << "Incorrect indexed triangles format" << std::endl;
+        return;
+    }
+
+    voxels.clear();
+
+    Eigen::Vector3d min;
+    Eigen::Vector3d max;
+    if (!ComputeAxisAlignedBoundingBox(vertices, min, max)) {
+        std::cerr << "Failed to compute AABB of mesh vertices" << std::endl;
+        return;
+    }
+
+    const Eigen::Vector3d size = max - min;
+    PivotVoxelGrid vg(
+            min, size, Eigen::Vector3d(res, res, res),
+            Eigen::Vector3d(voxel_origin.x(), voxel_origin.y(), voxel_origin.z()));
+
+    VoxelizeMesh(vertices, triangles, vg, fill);
+    ExtractVoxels(vg, voxels);
+}
+
+void VoxelizeMesh(
+    const std::vector<Eigen::Vector3d>& vertices,
+    const std::vector<int>& indices,
+    const Eigen::Affine3d& pose,
+    double res,
+    const Eigen::Vector3d& voxel_origin,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill)
+{
+    // TODO: implement
 }
 
 void VoxelizeSphereList(
