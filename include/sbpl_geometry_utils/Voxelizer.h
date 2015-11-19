@@ -38,8 +38,11 @@
 namespace sbpl
 {
 
-void VoxelizePlane(double a, double b, double c, double d, double voxel_size,
-                   unsigned char* grid, int width, int height, int depth);
+void VoxelizePlane(
+    double a, double b, double c, double d,
+    double voxel_size,
+    unsigned char* grid,
+    int width, int height, int depth);
 
 /// @brief Voxelize a triangle.
 /// @param p1 The first vertex of the triangle (TODO: can vertices be specified in clockwise order?)
@@ -51,11 +54,18 @@ void VoxelizePlane(double a, double b, double c, double d, double voxel_size,
 /// @param width The width of the voxel grid
 /// @param height The height of the voxel grid
 /// @param depth The depth of the voxel grid
-void VoxelizeTriangle(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, const geometry_msgs::Point& p3,
-                      unsigned char* grid, int width, int height, int depth);
+void VoxelizeTriangle(
+    const geometry_msgs::Point& p1,
+    const geometry_msgs::Point& p2,
+    const geometry_msgs::Point& p3,
+    unsigned char* grid,
+    int width, int height, int depth);
 
-void VoxelizeMesh(const std::vector<geometry_msgs::Point>& vertices, const std::vector<int>& indices,
-                  unsigned char* grid, int width, int height, int depth);
+void VoxelizeMesh(
+    const std::vector<geometry_msgs::Point>& vertices,
+    const std::vector<int>& indices,
+    unsigned char* grid,
+    int width, int height, int depth);
 
 /// @brief Voxelize a mesh.
 /// @param[in] vertices The vertices of the mesh
@@ -63,8 +73,11 @@ void VoxelizeMesh(const std::vector<geometry_msgs::Point>& vertices, const std::
 /// @param[in] cell_size The size of the voxels
 /// @param[out] out The resulting voxel grid as a list of points; each element of \out is a 3-dimensional vector
 ///                 representing the center of a size cell_size^3, axis-aligned voxel.
-void VoxelizeMesh(const std::vector<geometry_msgs::Point>& vertices, const std::vector<int>& indices,
-                  double cell_size, std::vector<std::vector<double> >& out);
+void VoxelizeMesh(
+    const std::vector<geometry_msgs::Point>& vertices,
+    const std::vector<int>& indices,
+    double cell_size,
+    std::vector<std::vector<double> >& out);
 
 class Voxelizer
 {
@@ -81,8 +94,13 @@ public:
      *                    this vector is a vector of doubles with the first three elements as the voxel's x,y,z
      *                    position and the fourth element as the length of a voxel's side
      */
-    static void voxelizeBox(double xSize, double ySize, double zSize, double voxelSize,
-                            std::vector<std::vector<double> >& voxels, bool fillMesh = false);
+    static void voxelizeBox(
+        double xSize,
+        double ySize,
+        double zSize,
+        double voxelSize,
+        std::vector<std::vector<double> >& voxels,
+        bool fillMesh = false);
 
     /**
      * @brief Encloses a generic box with a set of voxels of a given size.
@@ -96,8 +114,14 @@ public:
      *                    this vector is a vector of doubles with the first three elements as the voxel's x,y,z
      *                    position and the fourth element as the length of a voxel's side
      */
-    static void voxelizeBox(double xSize, double ySize, double zSize, const geometry_msgs::Pose& pose, double voxelSize,
-                            std::vector<std::vector<double> >& voxels, bool fillMesh = false);
+    static void voxelizeBox(
+        double xSize,
+        double ySize,
+        double zSize,
+        const geometry_msgs::Pose& pose,
+        double voxelSize,
+        std::vector<std::vector<double> >& voxels,
+        bool fillMesh = false);
 
 	/**
      * @brief Encloses a sphere with a set of voxels of a given size.
@@ -110,8 +134,11 @@ public:
      *               this vector is a vector of doubles with the first three elements as the voxel's x,y,z
      *               position and the fourth element as the length of a voxel's side
      */
-    static void voxelizeSphere(double radius, double voxelSize, std::vector<std::vector<double> >& voxels,
-                               bool fillMesh = false);
+    static void voxelizeSphere(
+        double radius,
+        double voxelSize,
+        std::vector<std::vector<double> >& voxels,
+        bool fillMesh = false);
 
     /**
      * @brief Encloses a sphere with a set of voxels of a given size.
@@ -199,6 +226,14 @@ public:
                              const geometry_msgs::Pose& pose, double voxelSize,
                              std::vector<std::vector<double> >& voxels, bool fillMesh = false, int maxSpheres = 0);
 
+    static void voxelizeMesh(
+        const std::vector<geometry_msgs::Point>& vertices,
+        const std::vector<int>& triangles,
+        const geometry_msgs::Point& grid_origin,
+        double grid_res,
+        std::vector<geometry_msgs::Point>& voxels,
+        bool fill);
+
     /**
      * @brief Encloses a list of spheres with a set of voxels of a given size
      *
@@ -249,15 +284,17 @@ private:
     static void createCylinderMesh(const std::vector<double>& pos, double radius, double length,
                                    std::vector<geometry_msgs::Point>& vertices, std::vector<int>& indices);
 
-    static bool getAxisAlignedBoundingBox(const std::vector<geometry_msgs::Point>& vertices, double& minX,
-                                          double& minY, double& minZ, double& maxX, double& maxY, double& maxZ);
+    static bool getAxisAlignedBoundingBox(
+        const std::vector<geometry_msgs::Point>& vertices,
+        geometry_msgs::Point& min,
+        geometry_msgs::Point& max);
     static void createCubeMesh(double x, double y, double z, double length, std::vector<Triangle>& trianglesOut);
     static bool isInDiscreteBoundingBox(int i, int j, int k, int minx, int miny, int minz,
                                         int maxx, int maxy, int maxz);
     static bool intersects(const Triangle& tr1, const Triangle& tr2, double eps = 1.0e-4);
     static bool pointOnTriangle(const Eigen::Vector3d& point, const Eigen::Vector3d& vertex1,
                                 const Eigen::Vector3d& vertex2, const Eigen::Vector3d& vertex3);
-    static void scanFill(std::vector<std::vector<std::vector<bool> > >& voxelGrid);
+    static void scanFill(std::vector<bool>& voxelGrid, int length, int width, int height);
     static void transformVertices(const Eigen::Affine3d& transform, std::vector<geometry_msgs::Point>& vertices);
 };
 

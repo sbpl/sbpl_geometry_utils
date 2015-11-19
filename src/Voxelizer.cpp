@@ -46,8 +46,38 @@ using std::endl;
 using geometry_msgs::Point;
 using geometry_msgs::Pose;
 
-void Voxelizer::voxelizeBox(double xSize, double ySize, double zSize, double voxelSize, vector<vector<double> >& voxels,
-                            bool fillMesh)
+void VoxelizePlane(
+    double a, double b, double c, double d,
+    double voxel_size,
+    unsigned char* grid,
+    int width, int height, int depth)
+{
+    d *= -1;
+//    double t = 1.0 / 2.0; // TODO: make voxel size
+    double t = sqrt(3) / 2;
+    for (int z = 0; z < depth; z++) {
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                // for each voxel at x, y, z
+                double voxel_x = x + 0.5;
+                double voxel_y = y + 0.5;
+                double voxel_z = z + 0.5;
+                if (utils::Signd(a * voxel_x + b * voxel_y + c * voxel_z + (d + t)) !=
+                    utils::Signd(a * voxel_x + b * voxel_y + c * voxel_z + (d - t)))
+                {
+                    // voxel lies between two points
+                    grid[width * height * z + width * y + x] = 1;
+                }
+            }
+        }
+    }
+}
+
+void Voxelizer::voxelizeBox(
+    double xSize, double ySize, double zSize,
+    double voxelSize,
+    vector<vector<double> >& voxels,
+    bool fillMesh)
 {
     vector<double> pos(3, 0.0);
     double dimensions[] = {xSize, ySize, zSize};
@@ -128,8 +158,42 @@ void Voxelizer::voxelizeCylinder(double cylinderRadius, double length, const Pos
     voxelizeMesh(vertices, triangles, voxelSize, voxels, fillMesh);
 }
 
-void Voxelizer::voxelizeMesh(const vector<Point>& vertices, const vector<int>& triangles,
-                             double voxelSize, vector<vector<double> >& voxels, bool fillMesh, int maxVoxels)
+class GridIndexer
+{
+public:
+
+    GridIndexer(int length, int width, int height) :
+        m_length(length), m_width(width), m_height(height)
+    { }
+
+    int operator()(int x, int y, int z) const {
+        return coord_to_index(x, y, z);
+    }
+
+    int coord_to_index(int x, int y, int z) const {
+        return x * m_width * m_height + y * m_height + z;
+    }
+
+    void index_to_coord(int index, int& x, int& y, int& z) const {
+        x = index / (m_width * m_height);
+        y = index - x * (m_width * m_height) / m_height;
+        z = index - x * (m_width * m_height) - y * (m_height);
+    }
+
+private:
+
+    int m_length;
+    int m_width;
+    int m_height;
+};
+
+void Voxelizer::voxelizeMesh(
+    const std::vector<geometry_msgs::Point>& vertices,
+    const std::vector<int>& triangles,
+    double voxelSize,
+    std::vector<std::vector<double> >& voxels,
+    bool fillMesh,
+    int maxVoxels)
 {
     if ((int)triangles.size() % 3 != 0) {
         return;
@@ -139,42 +203,33 @@ void Voxelizer::voxelizeMesh(const vector<Point>& vertices, const vector<int>& t
 
     voxels.clear();
 
-    double minX, minY, minZ;
-    double maxX, maxY, maxZ;
-    if (!getAxisAlignedBoundingBox(vertices, minX, minY, minZ, maxX, maxY, maxZ)) {
+    geometry_msgs::Point min;
+    geometry_msgs::Point max;
+    if (!getAxisAlignedBoundingBox(vertices, min, max)) {
         return;
     }
 
     // get the grid coordinates of the bounding voxel grid
-    int minVoxelX = (int)floor(minX / voxelLength);
-    int maxVoxelX = (int)floor(maxX / voxelLength);
-    int minVoxelY = (int)floor(minY / voxelLength);
-    int maxVoxelY = (int)floor(maxY / voxelLength);
-    int minVoxelZ = (int)floor(minZ / voxelLength);
-    int maxVoxelZ = (int)floor(maxZ / voxelLength);
+    int minVoxelX = (int)floor(min.x / voxelLength);
+    int maxVoxelX = (int)floor(max.x / voxelLength);
+    int minVoxelY = (int)floor(min.y / voxelLength);
+    int maxVoxelY = (int)floor(max.y / voxelLength);
+    int minVoxelZ = (int)floor(min.z / voxelLength);
+    int maxVoxelZ = (int)floor(max.z / voxelLength);
 
-    int numVoxelsX = maxVoxelX - minVoxelX + 1;
-    int numVoxelsY = maxVoxelY - minVoxelY + 1;
-    int numVoxelsZ = maxVoxelZ - minVoxelZ + 1;
+    int voxel_x_count = (maxVoxelX - minVoxelX) + 1;
+    int voxel_y_count = (maxVoxelY - minVoxelY) + 1;
+    int voxel_z_count = (maxVoxelZ - minVoxelZ) + 1;
 
     // Initialize the voxel grid
-    vector<vector<vector<bool> > > voxelGrid(numVoxelsX);
-    for (int i = 0; i < numVoxelsX; i++) {
-        voxelGrid[i].resize(numVoxelsY);
-        for (int j = 0; j < numVoxelsY; j++) {
-            voxelGrid[i][j].resize(numVoxelsZ);
-            for (int k = 0; k < numVoxelsZ; k++) {
-                voxelGrid[i][j][k] = false;
-            }
-        }
-    }
+    std::vector<bool> voxelGrid(voxel_x_count * voxel_y_count * voxel_z_count, false);
+    GridIndexer indexer(voxel_x_count, voxel_y_count, voxel_z_count);
 
     // create a triangle mesh for the voxel grid surrounding the mesh (TODO: extremely bad on memory; wtb index lists)
-#if !USING_LOW_MEM_VOXEL_MESH
     vector<Triangle> entireVoxelMesh;
-    for (int i = 0; i < numVoxelsX; i++) {
-        for (int j = 0; j < numVoxelsY; j++) {
-            for (int k = 0; k < numVoxelsZ; k++) {
+    for (int i = 0; i < voxel_x_count; i++) {
+        for (int j = 0; j < voxel_y_count; j++) {
+            for (int k = 0; k < voxel_z_count; k++) {
                 // Get the world coordinate of the voxel from its indices in the graph
                 double voxelCenterX = (i + minVoxelX) * voxelLength + 0.5 * voxelLength;
                 double voxelCenterY = (j + minVoxelY) * voxelLength + 0.5 * voxelLength;
@@ -189,19 +244,6 @@ void Voxelizer::voxelizeMesh(const vector<Point>& vertices, const vector<int>& t
         }
     }
     cout << "Using " << entireVoxelMesh.size() * sizeof(Triangle) << " bytes for voxel mesh" << endl;
-#else
-    // ANDREW: new method
-    vector<int> minVoxel, maxVoxel;
-    minVoxel.push_back(minVoxelX); maxVoxel.push_back(maxVoxelX);
-    minVoxel.push_back(minVoxelY); maxVoxel.push_back(maxVoxelY);
-    minVoxel.push_back(minVoxelZ); maxVoxel.push_back(maxVoxelZ);
-
-    vector<Point> vMeshVertices;
-    vector<int> vMeshIndices;
-    createVoxelMesh(voxelLength, minVoxel, maxVoxel, vMeshVertices, vMeshIndices);
-    cout << "Using " << vMeshIndices.size() * sizeof(int) + vMeshVertices.size() * sizeof(Point) <<
-                 " bytes for voxel mesh" << endl;
-#endif
 
     // for every triangle
     for (int triangleIdx = 0; triangleIdx < (int)triangles.size(); triangleIdx += 3) {
@@ -223,62 +265,49 @@ void Voxelizer::voxelizeMesh(const vector<Point>& vertices, const vector<int>& t
         triangle.p3.z = pt3.z;
 
         // get the bounding voxels of the triangle
-        double triMinX, triMinY, triMinZ, triMaxX, triMaxY, triMaxZ;
         vector<Point> triPointV;
         triPointV.push_back(pt1);
         triPointV.push_back(pt2);
         triPointV.push_back(pt3);
-        if (!getAxisAlignedBoundingBox(triPointV, triMinX, triMinY, triMinZ, triMaxX, triMaxY, triMaxZ)) {
+        geometry_msgs::Point tri_min;
+        geometry_msgs::Point tri_max;
+        if (!getAxisAlignedBoundingBox(triPointV, tri_min, tri_max)) {
             continue; // just skip this triangle; it's bogus
         }
         // shift all the voxels over to be aligned with the memory grid
-        int triMinVoxelX = floor(triMinX / voxelLength) - minVoxelX;
-        int triMinVoxelY = floor(triMinY / voxelLength) - minVoxelY;
-        int triMinVoxelZ = floor(triMinZ / voxelLength) - minVoxelZ;
-        int triMaxVoxelX = floor(triMaxX / voxelLength) - minVoxelX;
-        int triMaxVoxelY = floor(triMaxY / voxelLength) - minVoxelY;
-        int triMaxVoxelZ = floor(triMaxZ / voxelLength) - minVoxelZ;
+        int triMinVoxelX = floor(tri_min.x / voxelLength) - minVoxelX;
+        int triMinVoxelY = floor(tri_min.y / voxelLength) - minVoxelY;
+        int triMinVoxelZ = floor(tri_min.z / voxelLength) - minVoxelZ;
+        int triMaxVoxelX = floor(tri_max.x / voxelLength) - minVoxelX;
+        int triMaxVoxelY = floor(tri_max.y / voxelLength) - minVoxelY;
+        int triMaxVoxelZ = floor(tri_max.z / voxelLength) - minVoxelZ;
 
         // for every voxel in the voxel mesh i've constructed
-#if !USING_LOW_MEM_VOXEL_MESH
         for (unsigned a = 0; a < entireVoxelMesh.size(); a++) {
             int voxelNum = a / 12; // there are 12 mesh triangles per voxel
-#else
-        for (unsigned a = 0; a < vMeshIndices.size(); a+=3) {
-            int voxelNum = a / (12 * 3); // there are 12 mesh triangles per voxel
-#endif
-            int i = (voxelNum / (numVoxelsZ * numVoxelsY)) % numVoxelsX;
-            int j = (voxelNum / numVoxelsZ) % numVoxelsY;
-            int k = voxelNum % numVoxelsZ;
+            int i = (voxelNum / (voxel_z_count * voxel_y_count)) % voxel_x_count;
+            int j = (voxelNum / voxel_z_count) % voxel_y_count;
+            int k = voxelNum % voxel_z_count;
             // if not already filled, is in the bounding voxel grid of the triangle, and this voxel mesh
             // triangle intersects the current triangle, fill in the voxel
 
-#if !USING_LOW_MEM_VOXEL_MESH
-            if (!voxelGrid[i][j][k] && isInDiscreteBoundingBox(i, j, k, triMinVoxelX, triMinVoxelY, triMinVoxelZ,
+            if (!voxelGrid[indexer(i, j, k)] && isInDiscreteBoundingBox(i, j, k, triMinVoxelX, triMinVoxelY, triMinVoxelZ,
                 triMaxVoxelX, triMaxVoxelY, triMaxVoxelZ) && intersects(triangle, entireVoxelMesh[a])) {
-#else
-            Triangle t;
-            t.p1 = vMeshVertices[vMeshIndices[a + 0]];
-            t.p1 = vMeshVertices[vMeshIndices[a + 1]];
-            t.p1 = vMeshVertices[vMeshIndices[a + 2]];
-            if (!voxelGrid[i][j][k] && isInDiscreteBoundingBox(i, j, k, triMinVoxelX, triMinVoxelY, triMinVoxelZ,
-                                triMaxVoxelX, triMaxVoxelY, triMaxVoxelZ) && intersects(triangle, t)) {
-#endif
-                voxelGrid[i][j][k] = true;
+                voxelGrid[indexer(i, j, k)] = true;
             }
         }
     }
 
     // fill the mesh by scanning lines in the voxel outline grid
     if (fillMesh) {
-        scanFill(voxelGrid);
+        scanFill(voxelGrid, voxel_x_count, voxel_y_count, voxel_z_count);
     }
 
     // push back all the filled voxels
-    for (int i = 0; i < numVoxelsX; i++) {
-        for (int j = 0; j < numVoxelsY; j++) {
-            for (int k = 0; k < numVoxelsZ; k++) {
-                if (voxelGrid[i][j][k]) {
+    for (int i = 0; i < voxel_x_count; i++) {
+        for (int j = 0; j < voxel_y_count; j++) {
+            for (int k = 0; k < voxel_z_count; k++) {
+                if (voxelGrid[indexer(i, j, k)]) {
                     double centerX = (i + minVoxelX) * voxelLength + 0.5 * voxelLength;
                     double centerY = (j + minVoxelY) * voxelLength + 0.5 * voxelLength;
                     double centerZ = (k + minVoxelZ) * voxelLength + 0.5 * voxelLength;
@@ -287,6 +316,140 @@ void Voxelizer::voxelizeMesh(const vector<Point>& vertices, const vector<int>& t
                     voxelPos.push_back(centerY);
                     voxelPos.push_back(centerZ);
                     voxels.push_back(voxelPos);
+                }
+            }
+        }
+    }
+}
+
+void Voxelizer::voxelizeMesh(
+    const std::vector<geometry_msgs::Point>& vertices,
+    const std::vector<int>& triangles,
+    const geometry_msgs::Point& grid_origin,
+    double grid_res,
+    std::vector<geometry_msgs::Point>& voxels,
+    bool fill)
+{
+    if ((int)triangles.size() % 3 != 0) {
+        return;
+    }
+
+    double voxelLength = grid_res;
+
+    voxels.clear();
+
+    double minX, minY, minZ;
+    double maxX, maxY, maxZ;
+    geometry_msgs::Point min;
+    geometry_msgs::Point max;
+    if (!getAxisAlignedBoundingBox(vertices, min, max)) {
+        return;
+    }
+
+    // get the grid coordinates of the bounding voxel grid
+    int minVoxelX = (int)floor(min.x / voxelLength);
+    int maxVoxelX = (int)floor(max.x / voxelLength);
+    int minVoxelY = (int)floor(min.y / voxelLength);
+    int maxVoxelY = (int)floor(max.y / voxelLength);
+    int minVoxelZ = (int)floor(min.z / voxelLength);
+    int maxVoxelZ = (int)floor(max.z / voxelLength);
+
+    int numVoxelsX = maxVoxelX - minVoxelX + 1;
+    int numVoxelsY = maxVoxelY - minVoxelY + 1;
+    int numVoxelsZ = maxVoxelZ - minVoxelZ + 1;
+
+    // Initialize the voxel grid
+    std::vector<bool> voxelGrid(numVoxelsX * numVoxelsY * numVoxelsZ, false);
+    GridIndexer indexer(numVoxelsX, numVoxelsY, numVoxelsZ);
+
+    // create a triangle mesh for the voxel grid surrounding the mesh (TODO: extremely bad on memory; wtb index lists)
+    // ANDREW: new method
+    vector<int> minVoxel, maxVoxel;
+    minVoxel.push_back(minVoxelX); maxVoxel.push_back(maxVoxelX);
+    minVoxel.push_back(minVoxelY); maxVoxel.push_back(maxVoxelY);
+    minVoxel.push_back(minVoxelZ); maxVoxel.push_back(maxVoxelZ);
+
+    vector<Point> vMeshVertices;
+    vector<int> vMeshIndices;
+    createVoxelMesh(voxelLength, minVoxel, maxVoxel, vMeshVertices, vMeshIndices);
+    cout << "Using " << vMeshIndices.size() * sizeof(int) + vMeshVertices.size() * sizeof(Point) <<
+                 " bytes for voxel mesh" << endl;
+
+    // for every triangle
+    for (int triangleIdx = 0; triangleIdx < (int)triangles.size(); triangleIdx += 3) {
+        // get the vertices of the triangle as Point
+        const Point& pt1 = vertices[triangles[triangleIdx + 0]];
+        const Point& pt2 = vertices[triangles[triangleIdx + 1]];
+        const Point& pt3 = vertices[triangles[triangleIdx + 2]];
+
+        // pack those vertices into my Triangle struct
+        Triangle triangle;
+        triangle.p1.x = pt1.x;
+        triangle.p1.y = pt1.y;
+        triangle.p1.z = pt1.z;
+        triangle.p2.x = pt2.x;
+        triangle.p2.y = pt2.y;
+        triangle.p2.z = pt2.z;
+        triangle.p3.x = pt3.x;
+        triangle.p3.y = pt3.y;
+        triangle.p3.z = pt3.z;
+
+        // get the bounding voxels of the triangle
+        vector<Point> triPointV;
+        triPointV.push_back(pt1);
+        triPointV.push_back(pt2);
+        triPointV.push_back(pt3);
+        geometry_msgs::Point tri_min;
+        geometry_msgs::Point tri_max;
+        if (!getAxisAlignedBoundingBox(triPointV, tri_min, tri_max)) {
+            continue; // just skip this triangle; it's bogus
+        }
+        // shift all the voxels over to be aligned with the memory grid
+        int triMinVoxelX = floor(tri_min.x / voxelLength) - minVoxelX;
+        int triMinVoxelY = floor(tri_min.y / voxelLength) - minVoxelY;
+        int triMinVoxelZ = floor(tri_min.z / voxelLength) - minVoxelZ;
+        int triMaxVoxelX = floor(tri_max.x / voxelLength) - minVoxelX;
+        int triMaxVoxelY = floor(tri_max.y / voxelLength) - minVoxelY;
+        int triMaxVoxelZ = floor(tri_max.z / voxelLength) - minVoxelZ;
+
+        // for every voxel in the voxel mesh i've constructed
+        for (unsigned a = 0; a < vMeshIndices.size(); a+=3) {
+            int voxelNum = a / (12 * 3); // there are 12 mesh triangles per voxel
+            int i = (voxelNum / (numVoxelsZ * numVoxelsY)) % numVoxelsX;
+            int j = (voxelNum / numVoxelsZ) % numVoxelsY;
+            int k = voxelNum % numVoxelsZ;
+            // if not already filled, is in the bounding voxel grid of the triangle, and this voxel mesh
+            // triangle intersects the current triangle, fill in the voxel
+
+            Triangle t;
+            t.p1 = vMeshVertices[vMeshIndices[a + 0]];
+            t.p1 = vMeshVertices[vMeshIndices[a + 1]];
+            t.p1 = vMeshVertices[vMeshIndices[a + 2]];
+            if (!voxelGrid[indexer(i, j, k)] && isInDiscreteBoundingBox(i, j, k, triMinVoxelX, triMinVoxelY, triMinVoxelZ,
+                                triMaxVoxelX, triMaxVoxelY, triMaxVoxelZ) && intersects(triangle, t)) {
+                voxelGrid[indexer(i, j, k)] = true;
+            }
+        }
+    }
+
+    // fill the mesh by scanning lines in the voxel outline grid
+    if (fill) {
+        scanFill(voxelGrid, numVoxelsX, numVoxelsY, numVoxelsZ);
+    }
+
+    // push back all the filled voxels
+    for (int i = 0; i < numVoxelsX; i++) {
+        for (int j = 0; j < numVoxelsY; j++) {
+            for (int k = 0; k < numVoxelsZ; k++) {
+                if (voxelGrid[indexer(i, j, k)]) {
+                    double centerX = (i + minVoxelX) * voxelLength + 0.5 * voxelLength;
+                    double centerY = (j + minVoxelY) * voxelLength + 0.5 * voxelLength;
+                    double centerZ = (k + minVoxelZ) * voxelLength + 0.5 * voxelLength;
+                    geometry_msgs::Point p;
+                    p.x = centerX;
+                    p.x = centerY;
+                    p.x = centerZ;
+                    voxels.push_back(p);
                 }
             }
         }
@@ -823,26 +986,40 @@ void Voxelizer::createCylinderMesh(const vector<double>& pos, double length, dou
     }
 }
 
-bool Voxelizer::getAxisAlignedBoundingBox(const vector<Point>& vertices, double& minX,
-                                          double& minY, double& minZ, double& maxX, double& maxY, double& maxZ)
+bool Voxelizer::getAxisAlignedBoundingBox(
+    const std::vector<geometry_msgs::Point>& vertices,
+    geometry_msgs::Point& min,
+    geometry_msgs::Point& max)
 {
-    if (vertices.size() < 3) {
+    if (vertices.empty()) {
         return false;
     }
-    else {
-        minX = maxX = vertices[0].x;
-        minY = maxY = vertices[0].y;
-        minZ = maxZ = vertices[0].z;
+
+    min.x = max.x = vertices[0].x;
+    min.y = max.y = vertices[0].y;
+    min.z = max.z = vertices[0].z;
+
+    for (const geometry_msgs::Point& vertex : vertices) {
+        if (vertex.x < min.x) {
+            min.x = vertex.x;
+        }
+        if (vertex.x > max.x) {
+            max.x = vertex.x;
+        }
+        if (vertex.y < min.y) {
+            min.y = vertex.y;
+        }
+        if (vertex.y > max.y) {
+            max.y = vertex.y;
+        }
+        if (vertex.z < min.z) {
+            min.z = vertex.z;
+        }
+        if (vertex.z > max.z) {
+            max.z = vertex.z;
+        }
     }
 
-    for (vector<Point>::const_iterator it = vertices.begin(); it != vertices.end(); ++it) {
-        if (it->x < minX) minX = it->x;
-        if (it->x > maxX) maxX = it->x;
-        if (it->y < minY) minY = it->y;
-        if (it->y > maxY) maxY = it->y;
-        if (it->z < minZ) minZ = it->z;
-        if (it->z > maxZ) maxZ = it->z;
-    }
     return true;
 }
 
@@ -1282,41 +1459,41 @@ bool Voxelizer::pointOnTriangle(const Eigen::Vector3d& point, const Eigen::Vecto
     return insideCcw || insideCw;
 }
 
-void Voxelizer::scanFill(std::vector<std::vector<std::vector<bool> > >& voxelGrid)
+void Voxelizer::scanFill(
+    std::vector<bool>& voxelGrid,
+    int length, int width, int height)
 {
-    int numVoxelsX = (int)voxelGrid.size();
-    int numVoxelsY = voxelGrid.empty() ? 0 : (int)voxelGrid[0].size();
-    int numVoxelsZ = voxelGrid.empty() || voxelGrid[0].empty() ? 0 : (int)voxelGrid[0][0].size();
+    GridIndexer indexer(length, width, height);
 
-    for (int i = 0; i < numVoxelsX; i++) {
-        for (int j = 0; j < numVoxelsY; j++) {
+    for (int i = 0; i < length; i++) {
+        for (int j = 0; j < width; j++) {
             const int OUTSIDE = 0, ON_BOUNDARY_FROM_OUTSIDE = 1, INSIDE = 2, ON_BOUNDARY_FROM_INSIDE = 4;
             int scanState = OUTSIDE;
 
-            for (int k = 0; k < numVoxelsZ; k++) {
-                if (scanState == OUTSIDE && voxelGrid[i][j][k]) {
+            for (int k = 0; k < height; k++) {
+                if (scanState == OUTSIDE && voxelGrid[indexer(i, j, k)]) {
                     scanState = ON_BOUNDARY_FROM_OUTSIDE;
                 }
-                else if (scanState == ON_BOUNDARY_FROM_OUTSIDE && !voxelGrid[i][j][k]) {
+                else if (scanState == ON_BOUNDARY_FROM_OUTSIDE && !voxelGrid[indexer(i, j, k)]) {
                     bool allEmpty = true;
-                    for (int l = k; l < numVoxelsZ; l++) {
-                        allEmpty &= !voxelGrid[i][j][l];
+                    for (int l = k; l < height; l++) {
+                        allEmpty &= !voxelGrid[indexer(i, j, l)];
                     }
                     if (allEmpty) {
                         scanState = OUTSIDE;
                     }
                     else {
                         scanState = INSIDE;
-                        voxelGrid[i][j][k] = true;
+                        voxelGrid[indexer(i, j, k)] = true;
                     }
                 }
-                else if (scanState == INSIDE && !voxelGrid[i][j][k]) {
-                    voxelGrid[i][j][k] = true;
+                else if (scanState == INSIDE && !voxelGrid[indexer(i, j, k)]) {
+                    voxelGrid[indexer(i, j, k)] = true;
                 }
-                else if (scanState == INSIDE && voxelGrid[i][j][k]) {
+                else if (scanState == INSIDE && voxelGrid[indexer(i, j, k)]) {
                     scanState = ON_BOUNDARY_FROM_INSIDE;
                 }
-                else if (scanState == ON_BOUNDARY_FROM_INSIDE && !voxelGrid[i][j][k]) {
+                else if (scanState == ON_BOUNDARY_FROM_INSIDE && !voxelGrid[indexer(i, j, k)]) {
                     scanState = OUTSIDE;
                 }
             }
@@ -1339,30 +1516,6 @@ double Distance(double a, double b, double c, double d, double x, double y, doub
 {
     double dist = (a * x + b * y + c * z + d) / sqrt(a * a + b * b + c * c);
     return dist;
-}
-
-void VoxelizePlane(double a, double b, double c, double d, double voxel_size,
-                   unsigned char* grid, int width, int height, int depth)
-{
-    d *= -1;
-//    double t = 1.0 / 2.0; // TODO: make voxel size
-    double t = sqrt(3) / 2;
-    for (int z = 0; z < depth; z++) {
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                // for each voxel at x, y, z
-                double voxel_x = x + 0.5;
-                double voxel_y = y + 0.5;
-                double voxel_z = z + 0.5;
-                if (utils::Signd(a * voxel_x + b * voxel_y + c * voxel_z + (d + t)) !=
-                    utils::Signd(a * voxel_x + b * voxel_y + c * voxel_z + (d - t)))
-                {
-                    // voxel lies between two points
-                    grid[width * height * z + width * y + x] = 1;
-                }
-            }
-        }
-    }
 }
 
 double Distance(double p1x, double p1y, double p1z, double p2x, double p2y, double p2z,
@@ -1394,8 +1547,14 @@ double Distance(double p1x, double p1y, double p1z, double p2x, double p2y, doub
 }
 
 /// An Accurate Method for Voxelizing Polygon Meshes - Huang, Yagel, Filippov, Kurzion
-void VoxelizeTriangle(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2, const geometry_msgs::Point& p3,
-                      unsigned char* grid, int width, int height, int depth)
+void VoxelizeTriangle(
+    const geometry_msgs::Point& p1,
+    const geometry_msgs::Point& p2,
+    const geometry_msgs::Point& p3,
+    unsigned char* grid,
+    int width,
+    int height,
+    int depth)
 {
     Eigen::Vector3d p_1(p1.x, p1.y, p1.z);
     Eigen::Vector3d p_2(p2.x, p2.y, p2.z);
@@ -1520,12 +1679,20 @@ void VoxelizeTriangle(const geometry_msgs::Point& p1, const geometry_msgs::Point
     }
 }
 
-void VoxelizeMesh(const std::vector<geometry_msgs::Point>& vertices, const std::vector<int>& indices,
-                  unsigned char* grid, int width, int height, int depth)
+void VoxelizeMesh(
+    const std::vector<geometry_msgs::Point>& vertices,
+    const std::vector<int>& indices,
+    unsigned char* grid,
+    int width,
+    int height,
+    int depth)
 {
     for (int i = 0; i < (int)indices.size() / 3; i++) {
-        VoxelizeTriangle(vertices[indices[3 * i]], vertices[indices[3 * i + 1]], vertices[indices[3 * i + 2]],
-                         grid, width, height, depth);
+        VoxelizeTriangle(
+            vertices[indices[3 * i]],
+            vertices[indices[3 * i + 1]],
+            vertices[indices[3 * i + 2]],
+            grid, width, height, depth);
     }
 }
 
