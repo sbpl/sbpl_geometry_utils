@@ -401,20 +401,21 @@ public:
     { }
 };
 
-class MinDiscVoxelGrid : public VoxelGridBase<MinDiscretizer>
+class PivotVoxelGrid : public VoxelGridBase<PivotDiscretizer>
 {
 public:
 
-    MinDiscVoxelGrid(
+    PivotVoxelGrid(
         const Eigen::Vector3d& origin,
         const Eigen::Vector3d& size,
-        const Eigen::Vector3d& res)
+        const Eigen::Vector3d& res,
+        const Eigen::Vector3d& pivot)
     :
         VoxelGridBase(
             origin, size, res,
-            MinDiscretizer(res.x(), origin.x()),
-            MinDiscretizer(res.y(), origin.y()),
-            MinDiscretizer(res.z(), origin.z()))
+            PivotDiscretizer(res.x(), pivot.x()),
+            PivotDiscretizer(res.x(), pivot.y()),
+            PivotDiscretizer(res.x(), pivot.z()))
     { }
 };
 

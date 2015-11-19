@@ -33,28 +33,28 @@
 namespace sbpl {
 
 /// \brief Discretizes a continuous space into uniform cells such that one cell
-///     is centered on a given minimum value.
-class MinDiscretizer
+///     is centered on a given value.
+class PivotDiscretizer
 {
 public:
 
-    MinDiscretizer(double res, double min) : m_res(res), m_min(min) { }
+    PivotDiscretizer(double res, double pivot) : m_res(res), m_piv(pivot) { }
 
     double res() const { return m_res; }
-    double min() const { return m_min; }
+    double pivot() const { return m_piv; }
 
     int discretize(double d) const {
-        return 0;
+        return (int)floor((d - m_piv) / m_res + 0.5);
     }
 
     double continuize(int i) const {
-        return 0;
+        return m_piv + i * m_res;
     }
 
 private:
 
     double m_res;
-    double m_min;
+    double m_piv;
 };
 
 /// \brief Discretizes a continuous space into uniform cells such that one cell
@@ -63,21 +63,21 @@ class ZeroDiscretizer
 {
 public:
 
-    ZeroDiscretizer(double res) : m_res(res) { }
+    ZeroDiscretizer(double res) : m_min_disc(res, 0.0) { }
 
-    double res() const { return m_res; }
+    double res() const { return m_min_disc.res(); }
 
     int discretize(double d) const {
-        return 0;
+        return m_min_disc.discretize(d);
     }
 
     double continuize(int i) const {
-        return 0;
+        return m_min_disc.continuize(i);
     }
 
 private:
 
-    double m_res;
+    PivotDiscretizer m_min_disc;
 };
 
 /// \brief Discretizes a continuous space into uniform cells such that one cell
