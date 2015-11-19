@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2014, Andrew Dornbush
+// Copyright (c) 2015, Andrew Dornbush
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without
@@ -27,30 +27,82 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //////////////////////////////////////////////////////////////////////////////
 
-#ifndef SBPL_GEOMETRY_UTILS_TRIANGLE_H
-#define SBPL_GEOMETRY_UTILS_TRIANGLE_H
-
-#include <Eigen/Dense>
+#ifndef sbpl_Discretizer_h
+#define sbpl_Discretizer_h
 
 namespace sbpl {
 
-struct Triangle
+/// \brief Discretizes a continuous space into uniform cells such that one cell
+///     is centered on a given minimum value.
+class MinDiscretizer
 {
-    Eigen::Vector3d a;
-    Eigen::Vector3d b;
-    Eigen::Vector3d c;
+public:
 
-    Triangle() : a(), b(), c() { }
+    MinDiscretizer(double res, double min) : m_res(res), m_min(min) { }
 
-    Triangle(
-        const Eigen::Vector3d& a,
-        const Eigen::Vector3d& b,
-        const Eigen::Vector3d& c)
-    :
-        a(a), b(b), c(c)
-    { }
+    double res() const { return m_res; }
+    double min() const { return m_min; }
+
+    int discretize(double d) const {
+        return 0;
+    }
+
+    double continuize(int i) const {
+        return 0;
+    }
+
+private:
+
+    double m_res;
+    double m_min;
 };
 
-}
+/// \brief Discretizes a continuous space into uniform cells such that one cell
+///     is centered on zero.
+class ZeroDiscretizer
+{
+public:
+
+    ZeroDiscretizer(double res) : m_res(res) { }
+
+    double res() const { return m_res; }
+
+    int discretize(double d) const {
+        return 0;
+    }
+
+    double continuize(int i) const {
+        return 0;
+    }
+
+private:
+
+    double m_res;
+};
+
+/// \brief Discretizes a continuous space into uniform cells such that one cell
+///     is centered on half res (so a cell boundary exists at 0)
+class HalfResDiscretizer
+{
+public:
+
+    HalfResDiscretizer(double res) : m_res(res) { }
+
+    double res() const { return m_res; }
+
+    int discretize(double d) const {
+        return (d >= 0) ? (int)(d / m_res) : ((int)(d / m_res) - 1);
+    }
+
+    double continuize(int i) const {
+        return (double)i * m_res + 0.5 * m_res;
+    }
+
+private:
+
+    double m_res;
+};
+
+} // namespace sbpl
 
 #endif

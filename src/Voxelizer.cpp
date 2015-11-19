@@ -27,37 +27,164 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //////////////////////////////////////////////////////////////////////////////
 
+#include <sbpl_geometry_utils/Voxelizer.h>
+
+// standard includes
+#include <math.h>
+#include <stdio.h>
 #include <algorithm>
 #include <iostream>
-#include <cstdio>
-#include <cmath>
 
-#include <sbpl_geometry_utils/Voxelizer.h>
+// project includes
+#include <sbpl_geometry_utils/VoxelGrid.h>
 #include <sbpl_geometry_utils/utils.h>
 
-#define USING_LOW_MEM_VOXEL_MESH 0
+namespace sbpl {
 
-namespace sbpl
-{
+//////////////////////////////////
+// Static Function Declarations //
+//////////////////////////////////
 
-using std::vector;
-using std::cout;
-using std::endl;
-using geometry_msgs::Point;
-using geometry_msgs::Pose;
+static void VoxelizePlane(
+    double a, double b, double c, double d,
+    double voxel_size,
+    unsigned char* grid,
+    int width, int height, int depth);
+
+/// \brief Voxelize a triangle
+///
+/// Based on the algorithm described in:
+///
+/// 'Huang, Yagel, Filippov, and Kurzion, "An Accurate Method for Voxelizing
+/// Polygon Meshes," IEEE Volume Visualization '98, October, 1998, Chapel Hill,
+/// North Carolina, USA, pp. 119-126'
+template <typename Discretizer>
+static void VoxelizeTriangle(
+    const Eigen::Vector3d& a,
+    const Eigen::Vector3d& b,
+    const Eigen::Vector3d& c,
+    VoxelGridBase<Discretizer>& vg);
+
+template <typename Discretizer>
+static void VoxelizeMeshAwesome(
+    const std::vector<Eigen::Vector3d>& vertices,
+    const std::vector<int>& indices,
+    VoxelGridBase<Discretizer>& vg);
+
+template <typename Discretizer>
+void VoxelizeMeshNaive(
+    const std::vector<Eigen::Vector3d>& vertices,
+    const std::vector<int>& triangles,
+    VoxelGridBase<Discretizer>& vg);
+
+/// \brief Create a mesh representation of box
+/// The box mesh is axis-aligned and located at the origin.
+static void CreateIndexedBoxMesh(
+    double length,
+    double width,
+    double height,
+    std::vector<Eigen::Vector3d>& vertices,
+    std::vector<int>& indices);
+
+/// \brief Create a mesh representation of a sphere
+/// The sphere is located at the origin
+static void CreateIndexedSphereMesh(
+    double radius,
+    int lng_count,
+    int lat_count,
+    std::vector<Eigen::Vector3d>& vertices,
+    std::vector<int>& triangles);
+
+/// \brief Create a mesh representation of an upright (z-aligned) cylinder
+/// The cylinder is located at the origin.
+static void CreateIndexedCylinderMesh(
+    double radius,
+    double height,
+    std::vector<Eigen::Vector3d>& vertices,
+    std::vector<int>& indices);
+
+/// \brief Create a mesh representation of a grid
+static void CreateIndexedGridMesh(
+    double res,
+    const std::vector<int>& minVoxel,
+    const std::vector<int>& maxVoxel,
+    std::vector<Eigen::Vector3d>& vertices,
+    std::vector<int>& indices);
+
+static void CreateBoxMesh(
+    double length,
+    double width,
+    double height,
+    std::vector<Triangle>& trianglesOut);
+
+template <typename Discretizer>
+static void CreateGridMesh(
+    const VoxelGridBase<Discretizer>& vg,
+    std::vector<Triangle>& triangles);
+
+static bool ComputeAxisAlignedBoundingBox(
+    const std::vector<Eigen::Vector3d>& vertices,
+    Eigen::Vector3d& min,
+    Eigen::Vector3d& max);
+
+static bool IsInDiscreteBoundingBox(
+    const MemoryCoord& mc,
+    const MemoryCoord& minmc,
+    const MemoryCoord& maxmc);
+
+static bool Intersects(
+    const Triangle& tr1,
+    const Triangle& tr2,
+    double eps = 1.0e-4);
+
+static bool PointOnTriangle(
+    const Eigen::Vector3d& point,
+    const Eigen::Vector3d& vertex1,
+    const Eigen::Vector3d& vertex2,
+    const Eigen::Vector3d& vertex3);
+
+/// \brief Fill the interior of a voxel grid via scanning
+template <typename Discretizer>
+static void ScanFill(VoxelGridBase<Discretizer>& vg);
+
+static void TransformVertices(
+    const Eigen::Affine3d& transform,
+    std::vector<Eigen::Vector3d>& vertices);
+
+static double Distance(
+    double a, double b, double c, double d,
+    double x, double y, double z);
+
+static double Distance(
+    double p1x, double p1y, double p1z,
+    double p2x, double p2y, double p2z,
+    double radius_sqrd,
+    double x, double y, double z);
+
+static bool CompareX(const Eigen::Vector3d& u, const Eigen::Vector3d& v);
+static bool CompareY(const Eigen::Vector3d& u, const Eigen::Vector3d& v);
+static bool CompareZ(const Eigen::Vector3d& u, const Eigen::Vector3d& v);
+
+/////////////////////////////////
+// Static Function Definitions //
+/////////////////////////////////
 
 void VoxelizePlane(
     double a, double b, double c, double d,
     double voxel_size,
     unsigned char* grid,
-    int width, int height, int depth)
+    int length,
+    int width,
+    int height)
 {
+    // FIXME
+
     d *= -1;
 //    double t = 1.0 / 2.0; // TODO: make voxel size
     double t = sqrt(3) / 2;
-    for (int z = 0; z < depth; z++) {
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
+    for (int z = 0; z < height; z++) {
+        for (int y = 0; y < width; y++) {
+            for (int x = 0; x < length; x++) {
                 // for each voxel at x, y, z
                 double voxel_x = x + 0.5;
                 double voxel_y = y + 0.5;
@@ -66,598 +193,127 @@ void VoxelizePlane(
                     utils::Signd(a * voxel_x + b * voxel_y + c * voxel_z + (d - t)))
                 {
                     // voxel lies between two points
-                    grid[width * height * z + width * y + x] = 1;
+                    grid[length * width * z + length * y + x] = 1;
                 }
             }
         }
     }
 }
 
-void Voxelizer::voxelizeBox(
-    double xSize, double ySize, double zSize,
-    double voxelSize,
-    vector<vector<double> >& voxels,
-    bool fillMesh)
+template <typename Discretizer>
+void VoxelizeTriangle(
+    const Eigen::Vector3d& a,
+    const Eigen::Vector3d& b,
+    const Eigen::Vector3d& c,
+    VoxelGridBase<Discretizer>& vg)
 {
-    vector<double> pos(3, 0.0);
-    double dimensions[] = {xSize, ySize, zSize};
-    vector<double> dims(dimensions, dimensions + sizeof(dimensions) / sizeof(double));
-    vector<Point> vertices;
-    vector<int> triangles;
-    createBoxMesh(pos, dims, vertices, triangles);
-    voxelizeMesh(vertices, triangles, voxelSize, voxels, fillMesh);
-}
+    Eigen::Vector3d p_1 = a;
+    Eigen::Vector3d p_2 = b;
+    Eigen::Vector3d p_3 = c;
 
-void Voxelizer::voxelizeBox(double xSize, double ySize, double zSize, const Pose& pose, double voxelSize,
-                            vector<vector<double> >& voxels, bool fillMesh)
-{
-    vector<double> pos(3, 0.0);
-    double dimensions[] = {xSize, ySize, zSize};
-    vector<double> dims(dimensions, dimensions + sizeof(dimensions) / sizeof(double));
-    vector<Point> vertices;
-    vector<int> triangles;
-    createBoxMesh(pos, dims, vertices, triangles);
-
-    Eigen::Quaterniond q(pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z);
-    Eigen::Translation3d transMatrix(pose.position.x, pose.position.y, pose.position.z);
-    transformVertices(transMatrix * q, vertices);
-
-    // voxelize the transformed box
-    voxelizeMesh(vertices, triangles, voxelSize, voxels, fillMesh);
-}
-
-void Voxelizer::voxelizeSphere(double radius, double voxelSize, vector<vector<double> >& voxels, bool fillMesh)
-{
-    // TODO: make numLongitude and numLatitude lines configurable or parameters
-    vector<double> sphere(3, 0.0);
-    sphere.push_back(radius);
-    vector<Point> vertices;
-    vector<int> triangles;
-    createSphereMesh(sphere, 7, 8, vertices, triangles);
-    voxelizeMesh(vertices, triangles, voxelSize, voxels, fillMesh);
-}
-
-void Voxelizer::voxelizeSphere(double radius, const Pose& pose, double voxelSize, vector<vector<double> >& voxels,
-                               bool fillMesh)
-{
-    vector<double> sphere(3, 0.0);
-    sphere.push_back(radius);
-    vector<Point> vertices;
-    vector<int> triangles;
-    createSphereMesh(sphere, 7, 8, vertices, triangles);
-
-    Eigen::Quaterniond q(pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z);
-    Eigen::Translation3d transMatrix(pose.position.x, pose.position.y, pose.position.z);
-    transformVertices(transMatrix * q, vertices);
-
-    voxelizeMesh(vertices, triangles, voxelSize, voxels, fillMesh);
-}
-
-void Voxelizer::voxelizeCylinder(double cylinderRadius, double length, double voxelSize,
-                                 vector<vector<double> >& voxels, bool fillMesh)
-{
-    vector<double> pos(3, 0.0);
-    vector<Point> vertices;
-    vector<int> triangles;
-    createCylinderMesh(pos, length, cylinderRadius, vertices, triangles);
-    voxelizeMesh(vertices, triangles, voxelSize, voxels, fillMesh);
-}
-
-void Voxelizer::voxelizeCylinder(double cylinderRadius, double length, const Pose& pose,
-                                 double voxelSize, vector<vector<double> >& voxels, bool fillMesh)
-{
-    vector<double> pos(3, 0.0);
-    vector<Point> vertices;
-    vector<int> triangles;
-    createCylinderMesh(pos, length, cylinderRadius, vertices, triangles);
-
-    Eigen::Quaterniond q(pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z);
-    Eigen::Translation3d transMatrix(pose.position.x, pose.position.y, pose.position.z);
-    transformVertices(transMatrix * q, vertices);
-    
-    voxelizeMesh(vertices, triangles, voxelSize, voxels, fillMesh);
-}
-
-class GridIndexer
-{
-public:
-
-    GridIndexer(int length, int width, int height) :
-        m_length(length), m_width(width), m_height(height)
-    { }
-
-    int operator()(int x, int y, int z) const {
-        return coord_to_index(x, y, z);
-    }
-
-    int coord_to_index(int x, int y, int z) const {
-        return x * m_width * m_height + y * m_height + z;
-    }
-
-    void index_to_coord(int index, int& x, int& y, int& z) const {
-        x = index / (m_width * m_height);
-        y = index - x * (m_width * m_height) / m_height;
-        z = index - x * (m_width * m_height) - y * (m_height);
-    }
-
-private:
-
-    int m_length;
-    int m_width;
-    int m_height;
-};
-
-void Voxelizer::voxelizeMesh(
-    const std::vector<geometry_msgs::Point>& vertices,
-    const std::vector<int>& triangles,
-    double voxelSize,
-    std::vector<std::vector<double> >& voxels,
-    bool fillMesh,
-    int maxVoxels)
-{
-    if ((int)triangles.size() % 3 != 0) {
+    // check for colinearity and counterclockwiseness
+    double det = ((p_2 - p_1).cross(p_3 - p_1).norm());
+    if (det == 0) {
         return;
     }
 
-    double voxelLength = voxelSize;
+    // thickness parameters
+//    double t = 0.5 * sqrt(3.0);
+//    double t2 = 3.0 / 4.0;
 
-    voxels.clear();
+    double t = 0.5 * 1.0;
+    double t2 = 0.25;
 
-    geometry_msgs::Point min;
-    geometry_msgs::Point max;
-    if (!getAxisAlignedBoundingBox(vertices, min, max)) {
-        return;
+    Eigen::Vector3d mintri;
+    Eigen::Vector3d maxtri;
+    ComputeAxisAlignedBoundingBox({ a, b, c }, mintri, maxtri);
+
+    const WorldCoord minwc(mintri.x(), mintri.y(), mintri.z());
+    const WorldCoord maxwc(maxtri.x(), maxtri.y(), maxtri.z());
+    const GridCoord mingc = vg.worldToGrid(minwc);
+    const GridCoord maxgc = vg.worldToGrid(maxwc);
+
+    // make p_1, p_2, p_3 ccw
+    if (det < 0.0) {
+        std::swap(p_1, p_3);
     }
 
-    // get the grid coordinates of the bounding voxel grid
-    int minVoxelX = (int)floor(min.x / voxelLength);
-    int maxVoxelX = (int)floor(max.x / voxelLength);
-    int minVoxelY = (int)floor(min.y / voxelLength);
-    int maxVoxelY = (int)floor(max.y / voxelLength);
-    int minVoxelZ = (int)floor(min.z / voxelLength);
-    int maxVoxelZ = (int)floor(max.z / voxelLength);
+    // get the normal vector for the triangle
+    Eigen::Vector3d u = p_2 - p_1;
+    Eigen::Vector3d v = p_3 - p_2;
+    Eigen::Vector3d w = p_1 - p_3;
+    Eigen::Vector3d n = u.cross(v);
+    n.normalize();
 
-    int voxel_x_count = (maxVoxelX - minVoxelX) + 1;
-    int voxel_y_count = (maxVoxelY - minVoxelY) + 1;
-    int voxel_z_count = (maxVoxelZ - minVoxelZ) + 1;
+    // get the distance from the origin for the triangle plane
+    double d = -n.dot(p_1);
 
-    // Initialize the voxel grid
-    std::vector<bool> voxelGrid(voxel_x_count * voxel_y_count * voxel_z_count, false);
-    GridIndexer indexer(voxel_x_count, voxel_y_count, voxel_z_count);
+    // normal to the edge p2 - p1 pointing inwards
+    Eigen::Vector3d e1 = -u.cross(n);
+    e1.normalize();
 
-    // create a triangle mesh for the voxel grid surrounding the mesh (TODO: extremely bad on memory; wtb index lists)
-    vector<Triangle> entireVoxelMesh;
-    for (int i = 0; i < voxel_x_count; i++) {
-        for (int j = 0; j < voxel_y_count; j++) {
-            for (int k = 0; k < voxel_z_count; k++) {
-                // Get the world coordinate of the voxel from its indices in the graph
-                double voxelCenterX = (i + minVoxelX) * voxelLength + 0.5 * voxelLength;
-                double voxelCenterY = (j + minVoxelY) * voxelLength + 0.5 * voxelLength;
-                double voxelCenterZ = (k + minVoxelZ) * voxelLength + 0.5 * voxelLength;
+    // normal to the edge p3 - p2 pointing inwards
+    Eigen::Vector3d e2 = -v.cross(n);
+    e2.normalize();
 
-                vector<Triangle> voxelMesh;
-                createCubeMesh(voxelCenterX, voxelCenterY, voxelCenterZ, voxelLength, voxelMesh);
-                for (unsigned ii = 0; ii < voxelMesh.size(); ii++) {
-                    entireVoxelMesh.push_back(voxelMesh[ii]); // add these triangles to the full voxel mesh
+    // normal to the edge p1 - p3 pointing inwards
+    Eigen::Vector3d e3 = -w.cross(n);
+    e3.normalize();
+
+    // distances of the edge-guard planes from the origin
+    double d1 = -e1.dot(p_1);
+    double d2 = -e2.dot(p_2);
+    double d3 = -e3.dot(p_3);
+
+    // consider all voxels that this triangle can voxelize
+    for (int gx = mingc.x; gx <= maxgc.x; gx++) {
+        for (int gy = mingc.y; gy <= maxgc.y; gy++) {
+            for (int gz = mingc.z; gz <= maxgc.z; gz++) {
+                const GridCoord gc(gx, gy, gz);
+                if (vg[gc]) {
+                    continue;
                 }
-            }
-        }
-    }
-    cout << "Using " << entireVoxelMesh.size() * sizeof(Triangle) << " bytes for voxel mesh" << endl;
 
-    // for every triangle
-    for (int triangleIdx = 0; triangleIdx < (int)triangles.size(); triangleIdx += 3) {
-        // get the vertices of the triangle as Point
-        const Point& pt1 = vertices[triangles[triangleIdx + 0]];
-        const Point& pt2 = vertices[triangles[triangleIdx + 1]];
-        const Point& pt3 = vertices[triangles[triangleIdx + 2]];
+                const WorldCoord wc = vg.gridToWorld(gc);
 
-        // pack those vertices into my Triangle struct
-        Triangle triangle;
-        triangle.p1.x = pt1.x;
-        triangle.p1.y = pt1.y;
-        triangle.p1.z = pt1.z;
-        triangle.p2.x = pt2.x;
-        triangle.p2.y = pt2.y;
-        triangle.p2.z = pt2.z;
-        triangle.p3.x = pt3.x;
-        triangle.p3.y = pt3.y;
-        triangle.p3.z = pt3.z;
+                // check if the voxel point is in the plane of the triangle and
+                // within the edges
+                const Eigen::Vector3d voxel_p(wc.x, wc.y, wc.z);
 
-        // get the bounding voxels of the triangle
-        vector<Point> triPointV;
-        triPointV.push_back(pt1);
-        triPointV.push_back(pt2);
-        triPointV.push_back(pt3);
-        geometry_msgs::Point tri_min;
-        geometry_msgs::Point tri_max;
-        if (!getAxisAlignedBoundingBox(triPointV, tri_min, tri_max)) {
-            continue; // just skip this triangle; it's bogus
-        }
-        // shift all the voxels over to be aligned with the memory grid
-        int triMinVoxelX = floor(tri_min.x / voxelLength) - minVoxelX;
-        int triMinVoxelY = floor(tri_min.y / voxelLength) - minVoxelY;
-        int triMinVoxelZ = floor(tri_min.z / voxelLength) - minVoxelZ;
-        int triMaxVoxelX = floor(tri_max.x / voxelLength) - minVoxelX;
-        int triMaxVoxelY = floor(tri_max.y / voxelLength) - minVoxelY;
-        int triMaxVoxelZ = floor(tri_max.z / voxelLength) - minVoxelZ;
+                double dx1 = voxel_p(0) - p_1(0); double dy1 = voxel_p(1) - p_1(1); double dz1 = voxel_p(2) - p_1(2);
+                double dx2 = voxel_p(0) - p_2(0); double dy2 = voxel_p(1) - p_2(1); double dz2 = voxel_p(2) - p_2(2);
+                double dx3 = voxel_p(0) - p_3(0); double dy3 = voxel_p(1) - p_3(1); double dz3 = voxel_p(2) - p_3(2);
 
-        // for every voxel in the voxel mesh i've constructed
-        for (unsigned a = 0; a < entireVoxelMesh.size(); a++) {
-            int voxelNum = a / 12; // there are 12 mesh triangles per voxel
-            int i = (voxelNum / (voxel_z_count * voxel_y_count)) % voxel_x_count;
-            int j = (voxelNum / voxel_z_count) % voxel_y_count;
-            int k = voxelNum % voxel_z_count;
-            // if not already filled, is in the bounding voxel grid of the triangle, and this voxel mesh
-            // triangle intersects the current triangle, fill in the voxel
-
-            if (!voxelGrid[indexer(i, j, k)] && isInDiscreteBoundingBox(i, j, k, triMinVoxelX, triMinVoxelY, triMinVoxelZ,
-                triMaxVoxelX, triMaxVoxelY, triMaxVoxelZ) && intersects(triangle, entireVoxelMesh[a])) {
-                voxelGrid[indexer(i, j, k)] = true;
-            }
-        }
-    }
-
-    // fill the mesh by scanning lines in the voxel outline grid
-    if (fillMesh) {
-        scanFill(voxelGrid, voxel_x_count, voxel_y_count, voxel_z_count);
-    }
-
-    // push back all the filled voxels
-    for (int i = 0; i < voxel_x_count; i++) {
-        for (int j = 0; j < voxel_y_count; j++) {
-            for (int k = 0; k < voxel_z_count; k++) {
-                if (voxelGrid[indexer(i, j, k)]) {
-                    double centerX = (i + minVoxelX) * voxelLength + 0.5 * voxelLength;
-                    double centerY = (j + minVoxelY) * voxelLength + 0.5 * voxelLength;
-                    double centerZ = (k + minVoxelZ) * voxelLength + 0.5 * voxelLength;
-                    vector<double> voxelPos;
-                    voxelPos.push_back(centerX);
-                    voxelPos.push_back(centerY);
-                    voxelPos.push_back(centerZ);
-                    voxels.push_back(voxelPos);
-                }
-            }
-        }
-    }
-}
-
-void Voxelizer::voxelizeMesh(
-    const std::vector<geometry_msgs::Point>& vertices,
-    const std::vector<int>& triangles,
-    const geometry_msgs::Point& grid_origin,
-    double grid_res,
-    std::vector<geometry_msgs::Point>& voxels,
-    bool fill)
-{
-    if ((int)triangles.size() % 3 != 0) {
-        return;
-    }
-
-    double voxelLength = grid_res;
-
-    voxels.clear();
-
-    double minX, minY, minZ;
-    double maxX, maxY, maxZ;
-    geometry_msgs::Point min;
-    geometry_msgs::Point max;
-    if (!getAxisAlignedBoundingBox(vertices, min, max)) {
-        return;
-    }
-
-    // get the grid coordinates of the bounding voxel grid
-    int minVoxelX = (int)floor(min.x / voxelLength);
-    int maxVoxelX = (int)floor(max.x / voxelLength);
-    int minVoxelY = (int)floor(min.y / voxelLength);
-    int maxVoxelY = (int)floor(max.y / voxelLength);
-    int minVoxelZ = (int)floor(min.z / voxelLength);
-    int maxVoxelZ = (int)floor(max.z / voxelLength);
-
-    int numVoxelsX = maxVoxelX - minVoxelX + 1;
-    int numVoxelsY = maxVoxelY - minVoxelY + 1;
-    int numVoxelsZ = maxVoxelZ - minVoxelZ + 1;
-
-    // Initialize the voxel grid
-    std::vector<bool> voxelGrid(numVoxelsX * numVoxelsY * numVoxelsZ, false);
-    GridIndexer indexer(numVoxelsX, numVoxelsY, numVoxelsZ);
-
-    // create a triangle mesh for the voxel grid surrounding the mesh (TODO: extremely bad on memory; wtb index lists)
-    // ANDREW: new method
-    vector<int> minVoxel, maxVoxel;
-    minVoxel.push_back(minVoxelX); maxVoxel.push_back(maxVoxelX);
-    minVoxel.push_back(minVoxelY); maxVoxel.push_back(maxVoxelY);
-    minVoxel.push_back(minVoxelZ); maxVoxel.push_back(maxVoxelZ);
-
-    vector<Point> vMeshVertices;
-    vector<int> vMeshIndices;
-    createVoxelMesh(voxelLength, minVoxel, maxVoxel, vMeshVertices, vMeshIndices);
-    cout << "Using " << vMeshIndices.size() * sizeof(int) + vMeshVertices.size() * sizeof(Point) <<
-                 " bytes for voxel mesh" << endl;
-
-    // for every triangle
-    for (int triangleIdx = 0; triangleIdx < (int)triangles.size(); triangleIdx += 3) {
-        // get the vertices of the triangle as Point
-        const Point& pt1 = vertices[triangles[triangleIdx + 0]];
-        const Point& pt2 = vertices[triangles[triangleIdx + 1]];
-        const Point& pt3 = vertices[triangles[triangleIdx + 2]];
-
-        // pack those vertices into my Triangle struct
-        Triangle triangle;
-        triangle.p1.x = pt1.x;
-        triangle.p1.y = pt1.y;
-        triangle.p1.z = pt1.z;
-        triangle.p2.x = pt2.x;
-        triangle.p2.y = pt2.y;
-        triangle.p2.z = pt2.z;
-        triangle.p3.x = pt3.x;
-        triangle.p3.y = pt3.y;
-        triangle.p3.z = pt3.z;
-
-        // get the bounding voxels of the triangle
-        vector<Point> triPointV;
-        triPointV.push_back(pt1);
-        triPointV.push_back(pt2);
-        triPointV.push_back(pt3);
-        geometry_msgs::Point tri_min;
-        geometry_msgs::Point tri_max;
-        if (!getAxisAlignedBoundingBox(triPointV, tri_min, tri_max)) {
-            continue; // just skip this triangle; it's bogus
-        }
-        // shift all the voxels over to be aligned with the memory grid
-        int triMinVoxelX = floor(tri_min.x / voxelLength) - minVoxelX;
-        int triMinVoxelY = floor(tri_min.y / voxelLength) - minVoxelY;
-        int triMinVoxelZ = floor(tri_min.z / voxelLength) - minVoxelZ;
-        int triMaxVoxelX = floor(tri_max.x / voxelLength) - minVoxelX;
-        int triMaxVoxelY = floor(tri_max.y / voxelLength) - minVoxelY;
-        int triMaxVoxelZ = floor(tri_max.z / voxelLength) - minVoxelZ;
-
-        // for every voxel in the voxel mesh i've constructed
-        for (unsigned a = 0; a < vMeshIndices.size(); a+=3) {
-            int voxelNum = a / (12 * 3); // there are 12 mesh triangles per voxel
-            int i = (voxelNum / (numVoxelsZ * numVoxelsY)) % numVoxelsX;
-            int j = (voxelNum / numVoxelsZ) % numVoxelsY;
-            int k = voxelNum % numVoxelsZ;
-            // if not already filled, is in the bounding voxel grid of the triangle, and this voxel mesh
-            // triangle intersects the current triangle, fill in the voxel
-
-            Triangle t;
-            t.p1 = vMeshVertices[vMeshIndices[a + 0]];
-            t.p1 = vMeshVertices[vMeshIndices[a + 1]];
-            t.p1 = vMeshVertices[vMeshIndices[a + 2]];
-            if (!voxelGrid[indexer(i, j, k)] && isInDiscreteBoundingBox(i, j, k, triMinVoxelX, triMinVoxelY, triMinVoxelZ,
-                                triMaxVoxelX, triMaxVoxelY, triMaxVoxelZ) && intersects(triangle, t)) {
-                voxelGrid[indexer(i, j, k)] = true;
-            }
-        }
-    }
-
-    // fill the mesh by scanning lines in the voxel outline grid
-    if (fill) {
-        scanFill(voxelGrid, numVoxelsX, numVoxelsY, numVoxelsZ);
-    }
-
-    // push back all the filled voxels
-    for (int i = 0; i < numVoxelsX; i++) {
-        for (int j = 0; j < numVoxelsY; j++) {
-            for (int k = 0; k < numVoxelsZ; k++) {
-                if (voxelGrid[indexer(i, j, k)]) {
-                    double centerX = (i + minVoxelX) * voxelLength + 0.5 * voxelLength;
-                    double centerY = (j + minVoxelY) * voxelLength + 0.5 * voxelLength;
-                    double centerZ = (k + minVoxelZ) * voxelLength + 0.5 * voxelLength;
-                    geometry_msgs::Point p;
-                    p.x = centerX;
-                    p.x = centerY;
-                    p.x = centerZ;
-                    voxels.push_back(p);
-                }
-            }
-        }
-    }
-}
-
-void Voxelizer::voxelizeMesh(const vector<Point>& vertices, const vector<int>& triangles,
-                             const Pose& pose, double voxelSize, vector<vector<double> >& voxels,
-                             bool fillMesh, int maxVoxels)
-{
-    vector<Point> verticesCopy = vertices;
-
-    Eigen::Quaterniond q(pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z);
-    Eigen::Translation3d transMatrix(pose.position.x, pose.position.y, pose.position.z);
-    transformVertices(transMatrix * q, verticesCopy);
-    sbpl::VoxelizeMesh(verticesCopy, triangles, voxelSize, voxels);
-}
-
-void Voxelizer::voxelizeSphereList(const vector<vector<double> >& spheres, double res, bool removeDuplicates,
-                                   vector<vector<double> >& voxels, double& volume, bool fillMesh)
-{
-    voxels.clear();
-
-    // for each sphere
-    for (int i = 0; i < (int)spheres.size(); i++) {
-        // create a sphere mesh
-        vector<Point> sphereVertices;
-        vector<int> sphereTriangles;
-        createSphereMesh(spheres[i], 9, 10, sphereVertices, sphereTriangles);
-
-        // voxelize the sphere
-        vector<vector<double> > meshVoxels;
-        voxelizeMesh(sphereVertices, sphereTriangles, res, meshVoxels, fillMesh);
-
-        // add it to the list of voxels
-        for (int j = 0; j < (int)meshVoxels.size(); j++) {
-            voxels.push_back(meshVoxels[j]);
-        }
-    }
-
-    int duplicateIdx = (int)voxels.size();
-    for (int i = 0; i < duplicateIdx; i++) {
-        for (int j = i + 1; j < duplicateIdx; j++) {
-            double dx = voxels[i][0] - voxels[j][0];
-            double dy = voxels[i][1] - voxels[j][1];
-            double dz = voxels[i][2] - voxels[j][2];
-
-            // since all voxels are aligned on the same grid, if the distance is greater than half the resolution, it
-            // has to be the same voxel (really if distance is just less than the resolution)
-            if (dx * dx + dy * dy + dz * dz < res * res / 4.0) {
-                vector<double> temp = voxels[duplicateIdx - 1];
-                voxels[duplicateIdx - 1] = voxels[j];
-                voxels[j] = temp;
-                duplicateIdx--;
-            }
-        }
-    }
-
-    volume = duplicateIdx * res * res * res;
-
-    if (removeDuplicates) {
-        voxels.resize(duplicateIdx);
-    }
-}
-
-struct Indexer
-{
-    size_t length, width, height;
-    Indexer(size_t length, size_t width, size_t height) :
-        length(length), width(width), height(height)
-    { }
-
-    size_t to_index(size_t x, size_t y, size_t z) const
-    {
-        return x * width * height + y * height + z;
-    }
-
-    void to_coord(size_t idx, size_t& x, size_t& y, size_t& z) const
-    {
-        x = idx / (width * height);
-        y = (idx - x * width * height) / height;
-        z = idx - (x * width * height + y * height);
-    }
-};
-
-struct Discretizer
-{
-    double res;
-
-    Discretizer(double res) : res(res) { }
-
-    int discretize(double d) const
-    {
-        return (d >= 0) ? (int)(d / res) : ((int)(d / res) - 1);
-    }
-
-    double continuize(int i) const
-    {
-        return (double)i * res + 0.5 * res;
-    }
-};
-
-void Voxelizer::voxelizeSphereListQAD(
-    const vector<vector<double> >& spheres,
-    double res,
-    bool removeDuplicates,      
-    vector<vector<double> >& voxels,
-    double& volume,
-    bool fillMesh)
-{
-    voxels.clear();
-
-    // compute the continuous bounding box of all spheres
-    double minXc = 1000000000.0;
-    double minYc = 1000000000.0;
-    double minZc = 1000000000.0;
-    double maxXc = -1000000000.0;
-    double maxYc = -1000000000.0;
-    double maxZc = -1000000000.0;
-    for (size_t i = 0; i < spheres.size(); i++) {
-        const double x = spheres[i][0];
-        const double y = spheres[i][1];
-        const double z = spheres[i][2];
-        const double r = spheres[i][3];
-        if (x - r < minXc) minXc = x - r;
-        if (y - r < minYc) minYc = y - r;
-        if (z - r < minZc) minZc = z - r;
-        if (x + r > maxXc) maxXc = x + r;
-        if (y + r > maxYc) maxYc = y + r;
-        if (z + r > maxZc) maxZc = z + r;
-    }
-
-    // compute discrete grid bounds and dimensions
-    Discretizer disc(res);
-    const int minXd = disc.discretize(minXc);
-    const int minYd = disc.discretize(minYc);
-    const int minZd = disc.discretize(minZc);
-    const int maxXd = disc.discretize(maxXc);
-    const int maxYd = disc.discretize(maxYc);
-    const int maxZd = disc.discretize(maxZc);
-
-    const int sx = (maxXd - minXd) + 1;
-    const int sy = (maxYd - minYd) + 1;
-    const int sz = (maxZd - minZd) + 1;
-
-    // create an empty voxel grid
-    std::vector<int> grid(sx * sy * sz, 0);
-    Indexer indexer(sx, sy, sz);
-
-    // for each of sphere
-    for (size_t i = 0; i < spheres.size(); i++) {
-        const double x = spheres[i][0];
-        const double y = spheres[i][1];
-        const double z = spheres[i][2];
-        const double r = spheres[i][3];
-        const double r2 = r * r;
-
-        // iterate over grids in discrete bounding box of sphere
-        for (int xd = disc.discretize(x - r);
-            xd <= disc.discretize(x + r); ++xd)
-        {
-            for (int yd = disc.discretize(y - r);
-                yd <= disc.discretize(y + r); ++yd)
-            {
-                for (int zd = disc.discretize(z - r);
-                    zd <= disc.discretize(z + r); ++zd)
+                if ((dx1 * dx1 + dy1 * dy1 + dz1 * dz1) <= t2 ||
+                    (dx2 * dx2 + dy2 * dy2 + dz2 * dz2) <= t2 ||
+                    (dx3 * dx3 + dy3 * dy3 + dz3 * dz3) <= t2)
                 {
-                    const double dx = disc.continuize(xd) - x;
-                    const double dy = disc.continuize(yd) - y;
-                    const double dz = disc.continuize(zd) - z;
-                    const double d2 = dx * dx + dy * dy + dz * dz;
-                    if (d2 <= r2) {
-                        const int ix = xd - minXd;
-                        const int iy = yd - minYd;
-                        const int iz = zd - minZd;
-                        // count the number of spheres that enclose this cell
-                        // center
-                        ++grid[indexer.to_index(ix, iy, iz)];
-                    }
+                    // check for a vertex filling in this voxel
+                    vg[gc] = true;
                 }
-            }
-        }
-    }
-
-    // run through the voxel grid and sum the volume
-    vector<double> p(3, 0);
-    volume = 0;
-    const double cellVolume = res * res * res;
-    for (int x = 0; x < sx; x++) {
-        for (int y = 0; y < sy; y++) {
-            for (int z = 0; z < sz; z++) {
-                const int gc = grid[indexer.to_index(x, y, z)];
-                if (gc > 0) {
-                    volume += cellVolume;
-
-                    if (removeDuplicates) {
-                        p[0] = disc.continuize(minXd + x);
-                        p[1] = disc.continuize(minYd + y);
-                        p[2] = disc.continuize(minZd + z);
-                        voxels.push_back(p);
-                    }
-                    else {
-                        for (int i = 0; i < gc; ++i) {
-                            p[0] = disc.continuize(minXd + x);
-                            p[1] = disc.continuize(minYd + y);
-                            p[2] = disc.continuize(minZd + z);
-                            voxels.push_back(p);
-                        }
+                else if (Distance(p_1(0), p_1(1), p_1(2), p_2(0), p_2(1), p_2(2), t2, voxel_p(0), voxel_p(1), voxel_p(2)) != -1.0 ||
+                         Distance(p_2(0), p_2(1), p_2(2), p_3(0), p_3(1), p_3(2), t2, voxel_p(0), voxel_p(1), voxel_p(2)) != -1.0 ||
+                         Distance(p_3(0), p_3(1), p_3(2), p_1(0), p_1(1), p_1(2), t2, voxel_p(0), voxel_p(1), voxel_p(2)) != -1.0)
+                {
+                    // then check for an edge
+                    vg[gc] = true;
+                }
+                else {
+                    // then check for inside the triangle
+                    if ((
+                            // inside triangle thickness
+                            utils::Signd(n.dot(voxel_p) + (d + t)) != utils::Signd(n.dot(voxel_p) + (d - t))
+                        ) &&
+                        (
+                            // inside the edge bounding planes
+                            (
+                                (e1.dot(voxel_p) + d1 > 0.0) &&
+                                (e2.dot(voxel_p) + d2 > 0.0) &&
+                                (e3.dot(voxel_p) + d3 > 0.0)
+                            )
+                        ))
+                    {
+                        vg[gc] = true;
                     }
                 }
             }
@@ -665,12 +321,292 @@ void Voxelizer::voxelizeSphereListQAD(
     }
 }
 
-void Voxelizer::createVoxelMesh(double res, const vector<int>& minVoxel, const vector<int>& maxVoxel,
-                                vector<Point>& vertices, vector<int>& indices)
+template <typename Discretizer>
+void VoxelizeMeshAwesome(
+    const std::vector<Eigen::Vector3d>& vertices,
+    const std::vector<int>& indices,
+    VoxelGridBase<Discretizer>& vg)
 {
-    // TODO: optimize by removing duplicate triangles (hopefully by never generating them in the first
-    // place; this will then have to be propogated to calling code to be able to know the voxels that
-    // correspond to a given triangle
+    for (int i = 0; i < (int)indices.size() / 3; i++) {
+        const Eigen::Vector3d& a = vertices[indices[3 * i + 0]];
+        const Eigen::Vector3d& b = vertices[indices[3 * i + 1]];
+        const Eigen::Vector3d& c = vertices[indices[3 * i + 2]];
+        VoxelizeTriangle(a, b, c, vg);
+    }
+}
+
+template <typename Discretizer>
+void VoxelizeMeshNaive(
+    const std::vector<Eigen::Vector3d>& vertices,
+    const std::vector<int>& triangles,
+    VoxelGridBase<Discretizer>& vg)
+{
+    // create a triangle mesh for the voxel grid surrounding the mesh
+    // TODO: use indexed mesh
+    std::vector<Triangle> voxel_mesh;
+    CreateGridMesh(vg, voxel_mesh);
+    std::cout << "Using " << voxel_mesh.size() * sizeof(Triangle) <<
+            " bytes for voxel mesh" << std::endl;
+
+    for (size_t tidx = 0; tidx < triangles.size(); tidx += 3) {
+        // get the vertices of the triangle as Point
+        const Eigen::Vector3d& pt1 = vertices[triangles[tidx + 0]];
+        const Eigen::Vector3d& pt2 = vertices[triangles[tidx + 1]];
+        const Eigen::Vector3d& pt3 = vertices[triangles[tidx + 2]];
+
+        // pack those vertices into my Triangle struct
+        Triangle triangle(pt1, pt2, pt3);
+
+        // get the bounding box of the triangle
+        std::vector<Eigen::Vector3d> triPointV = { pt1, pt2, pt3 };
+        Eigen::Vector3d tri_min;
+        Eigen::Vector3d tri_max;
+        if (!ComputeAxisAlignedBoundingBox(triPointV, tri_min, tri_max)) {
+            std::cerr << "Failed to compute AABB of triangle" << std::endl;
+            continue; // just skip this triangle; it's bogus
+        }
+
+        // compute the bounding voxel grid
+        const WorldCoord minwc(tri_min.x(), tri_min.y(), tri_min.z());
+        const WorldCoord maxwc(tri_max.x(), tri_max.y(), tri_max.z());
+        const MemoryCoord minmc = vg.worldToMemory(minwc);
+        const MemoryCoord maxmc = vg.worldToMemory(maxwc);
+
+        // voxels in the voxel mesh are ordered by the memory index
+        for (size_t a = 0; a < voxel_mesh.size(); a++) {
+            int voxelNum = a / 12; // there are 12 mesh triangles per voxel
+
+            const MemoryIndex mi(voxelNum);
+            const MemoryCoord mc = vg.indexToMemory(mi);
+
+            // if not already filled, is in the bounding voxel grid of the
+            // triangle, and this voxel mesh triangle Intersects the current
+            // triangle, fill in the voxel
+
+            if (!vg[mi] &&
+                IsInDiscreteBoundingBox(mc, minmc, maxmc) &&
+                Intersects(triangle, voxel_mesh[a]))
+            {
+                vg[mi] = true;
+            }
+        }
+    }
+}
+
+void CreateIndexedBoxMesh(
+    double length,
+    double width,
+    double height,
+    std::vector<Eigen::Vector3d>& vertices,
+    std::vector<int>& indices)
+{
+    vertices.clear();
+    indices.clear();
+
+    // l = left, r = right, t = top, b = bottom/back, f = front
+
+    Eigen::Vector3d rtb_corner;
+    rtb_corner.x() =  0.5 * length;
+    rtb_corner.y() =  0.5 * width;
+    rtb_corner.z() = -0.5 * height;
+
+    Eigen::Vector3d ltb_corner;
+    ltb_corner.x() = -0.5 * length;
+    ltb_corner.y() =  0.5 * width;
+    ltb_corner.z() = -0.5 * height;
+
+    Eigen::Vector3d ltf_corner;
+    ltf_corner.x() = -0.5 * length;
+    ltf_corner.y() =  0.5 * width;
+    ltf_corner.z() =  0.5 * height;
+
+    Eigen::Vector3d rtf_corner;
+    rtf_corner.x() = 0.5 * length;
+    rtf_corner.y() = 0.5 * width;
+    rtf_corner.z() = 0.5 * height;
+
+    Eigen::Vector3d rbb_corner;
+    rbb_corner.x() =  0.5 * length;
+    rbb_corner.y() = -0.5 * width;
+    rbb_corner.z() = -0.5 * height;
+
+    Eigen::Vector3d lbb_corner;
+    lbb_corner.x() = -0.5 * length;
+    lbb_corner.y() = -0.5 * width;
+    lbb_corner.z() = -0.5 * height;
+
+    Eigen::Vector3d lbf_corner;
+    lbf_corner.x() = -0.5 * length;
+    lbf_corner.y() = -0.5 * width;
+    lbf_corner.z() =  0.5 * height;
+
+    Eigen::Vector3d rbf_corner;
+    rbf_corner.x() =  0.5 * length;
+    rbf_corner.y() = -0.5 * width;
+    rbf_corner.z() =  0.5 * height;
+
+    vertices.push_back(lbb_corner);
+    vertices.push_back(rbb_corner);
+    vertices.push_back(ltb_corner);
+    vertices.push_back(rtb_corner);
+    vertices.push_back(lbf_corner);
+    vertices.push_back(rbf_corner);
+    vertices.push_back(ltf_corner);
+    vertices.push_back(rtf_corner);
+
+    indices.push_back(0); indices.push_back(2); indices.push_back(1); // back faces
+    indices.push_back(1); indices.push_back(2); indices.push_back(3);
+    indices.push_back(5); indices.push_back(1); indices.push_back(7); // right face
+    indices.push_back(1); indices.push_back(3); indices.push_back(7);
+    indices.push_back(5); indices.push_back(7); indices.push_back(4); // front face
+    indices.push_back(4); indices.push_back(7); indices.push_back(6);
+    indices.push_back(4); indices.push_back(6); indices.push_back(0); // left face
+    indices.push_back(0); indices.push_back(6); indices.push_back(2);
+    indices.push_back(6); indices.push_back(7); indices.push_back(2); // top face
+    indices.push_back(7); indices.push_back(3); indices.push_back(2);
+    indices.push_back(5); indices.push_back(0); indices.push_back(1); // bottom face
+    indices.push_back(4); indices.push_back(5); indices.push_back(0);
+}
+
+void CreateIndexedSphereMesh(
+    double radius,
+    int numLongitudes,
+    int numLatitudes,
+    std::vector<Eigen::Vector3d>& vertices,
+    std::vector<int>& triangles)
+{
+    // TODO: handle the case where there is only one line of longitude and thus
+    // there are no quadrilaterals to break up into two triangles and the method
+    // for getting the indices of those triangles breaks
+
+    vertices.clear();
+    triangles.clear();
+
+    // create the top vertex
+    Eigen::Vector3d northPole(0.0, 0.0, radius);
+    vertices.push_back(northPole);
+
+    // create the intermediate vertices
+    double phiInc = (2.0 * M_PI) / numLatitudes;
+    double thetaInc = M_PI / (numLongitudes + 1);
+    for (int phi = 0; phi < numLatitudes; phi++) {
+        for (int theta = 0; theta < numLongitudes; theta++) {
+            double phiCont = phi * phiInc;
+            double thetaCont = (theta + 1) * thetaInc;
+
+            Eigen::Vector3d p(
+                    radius * sin(thetaCont) * cos(phiCont),
+                    radius * sin(thetaCont) * sin(phiCont),
+                    radius * cos(thetaCont));
+            vertices.push_back(p);
+        }
+    }
+
+    // create the bottom vertex
+    Eigen::Vector3d southPole(0.0, 0.0, -radius);
+    vertices.push_back(southPole);
+
+    // add all the triangles with the north pole as a vertex
+    for (int i = 0; i < numLatitudes; i++) {
+        // add in top triangle
+        triangles.push_back(0);
+        triangles.push_back(i + 1);
+        if (i == numLatitudes - 1) {
+            triangles.push_back(1);
+        }
+        else {
+            triangles.push_back(i + 2);
+        }
+    }
+
+    // add all intermediate triangles
+    for (int i = 0; i < numLongitudes - 1; i++) {
+        for (int j = 0; j < numLatitudes; j++) {
+            // i, j corresponds to one of the generated vertices
+            int baseVertexIdx = i * numLatitudes + j + 1;
+            int bBaseVertexIdx = baseVertexIdx + numLatitudes;
+            int brBaseVertexIdx = bBaseVertexIdx + 1;
+            int rBaseVertexIdx = baseVertexIdx + 1;
+
+            if ((brBaseVertexIdx - 1)/numLatitudes != (bBaseVertexIdx - 1)/numLatitudes) {
+                brBaseVertexIdx -= numLatitudes;
+            }
+
+            if ((rBaseVertexIdx - 1)/numLatitudes != (baseVertexIdx - 1)/numLatitudes) {
+                rBaseVertexIdx -= numLatitudes;
+            }
+
+            triangles.push_back(baseVertexIdx);
+            triangles.push_back(bBaseVertexIdx);
+            triangles.push_back(brBaseVertexIdx);
+
+            triangles.push_back(baseVertexIdx);
+            triangles.push_back(brBaseVertexIdx);
+            triangles.push_back(rBaseVertexIdx);
+        }
+    }
+
+    // add all the triangles with the south pole as a vertex
+    for (int i = 0; i < numLatitudes; i++) {
+        triangles.push_back(vertices.size() - 1);
+        if (i == 0) {
+            triangles.push_back(vertices.size() - 1 - numLatitudes);
+        }
+        else {
+            triangles.push_back(vertices.size() - 1 - i);
+        }
+        triangles.push_back(vertices.size() - 1 - (i + 1));
+    }
+}
+
+void CreateIndexedCylinderMesh(
+    double radius,
+    double length,
+    std::vector<Eigen::Vector3d>& vertices,
+    std::vector<int>& indices)
+{
+    const int numPtsOnRim = 16;
+
+    for (int i = 0; i < numPtsOnRim; i++) {
+        double theta = 2.0 * M_PI * (double)i / double(numPtsOnRim);
+        Eigen::Vector3d p(
+                radius * cos(theta),
+                radius * sin(theta),
+                0.5 * length);
+        vertices.push_back(p);
+    }
+
+    for (int i = 0; i < numPtsOnRim; i++) {
+        double theta = 2.0 * M_PI * (double)i / double(numPtsOnRim);
+        Eigen::Vector3d p(
+                radius * cos(theta),
+                radius * sin(theta),
+                -0.5 * length);
+        vertices.push_back(p);
+    }
+
+    for (int i = 0; i < numPtsOnRim; i++) {
+        indices.push_back(i);
+        indices.push_back((i + 1) % numPtsOnRim);
+        indices.push_back(i + numPtsOnRim);
+
+        indices.push_back((i + 1) % numPtsOnRim);
+        indices.push_back(((i + 1) % numPtsOnRim) + numPtsOnRim);
+        indices.push_back(i + numPtsOnRim);
+    }
+}
+
+void CreateIndexedGridMesh(
+    double res,
+    const std::vector<int>& minVoxel,
+    const std::vector<int>& maxVoxel,
+    std::vector<Eigen::Vector3d>& vertices,
+    std::vector<int>& indices)
+{
+    // TODO: optimize by removing duplicate triangles (hopefully by never
+    // generating them in the first place; this will then have to be propogated
+    // to calling code to be able to know the voxels that correspond to a given
+    // triangle
 
     assert(minVoxel.size() >= 3 && maxVoxel.size() >= 3);
 
@@ -685,10 +621,10 @@ void Voxelizer::createVoxelMesh(double res, const vector<int>& minVoxel, const v
     for (int i = 0; i < numVoxelsX + 1; i++) {
         for (int j = 0; j < numVoxelsY + 1; j++) {
             for (int k = 0; k < numVoxelsZ + 1; k++) {
-                Point p;
-                p.x = (i + minVoxel[0]) * res;
-                p.y = (j + minVoxel[1]) * res;
-                p.z = (k + minVoxel[2]) * res;
+                Eigen::Vector3d p(
+                        p.x() = (i + minVoxel[0]) * res,
+                        p.y() = (j + minVoxel[1]) * res,
+                        p.z() = (k + minVoxel[2]) * res);
                 vertices.push_back(p);
             }
         }
@@ -765,398 +701,213 @@ void Voxelizer::createVoxelMesh(double res, const vector<int>& minVoxel, const v
     }
 }
 
-void Voxelizer::createSphereMesh(const vector<double>& sphere, int numLongitudes, int numLatitudes,
-                                 vector<Point>& vertices, vector<int>& triangles)
+void CreateBoxMesh(
+    double length,
+    double width,
+    double height,
+    std::vector<Triangle>& trianglesOut)
 {
-    // TODO: handle the case where there is only one line of longitude and thus there are no
-    // quadrilaterals to break up into two triangles and the method for getting the indices of
-    // those triangles breaks
+    trianglesOut.clear();
 
-    // create the mesh for a sphere centered at the origin and translate into
-    // the proper position
-    vertices.clear();
-    triangles.clear();
+    Eigen::Vector3d rtb_corner;
+    rtb_corner.x() =  0.5 * length;
+    rtb_corner.y() =  0.5 * width;
+    rtb_corner.z() = -0.5 * height;
 
-    double sphereX = sphere[0];
-    double sphereY = sphere[1];
-    double sphereZ = sphere[2];
-    double radius = sphere[3];
+    Eigen::Vector3d ltb_corner;
+    ltb_corner.x() = -0.5 * length;
+    ltb_corner.y() =  0.5 * width;
+    ltb_corner.z() = -0.5 * height;
 
-    // create the top vertex
-    Point northPole;
-    northPole.x = 0;
-    northPole.y = 0;
-    northPole.z = radius;
+    Eigen::Vector3d ltf_corner;
+    ltf_corner.x() = -0.5 * length;
+    ltf_corner.y() =  0.5 * width;
+    ltf_corner.z() =  0.5 * height;
 
-    vertices.push_back(northPole);
+    Eigen::Vector3d rtf_corner;
+    rtf_corner.x() = 0.5 * length;
+    rtf_corner.y() = 0.5 * width;
+    rtf_corner.z() = 0.5 * height;
 
-    // create the vertices in between
-    double phiInc = 2.0 * M_PI / numLatitudes;
-    double thetaInc = M_PI / (numLongitudes + 1);
-    for (int phi = 0; phi < numLatitudes; phi++) {
-        for (int theta = 0; theta < numLongitudes; theta++) {
-            double phiCont = phi * phiInc;
-            double thetaCont = (theta + 1) * thetaInc;
+    Eigen::Vector3d rbb_corner;
+    rbb_corner.x() = +0.5 * length;
+    rbb_corner.y() =  0.5 * width;
+    rbb_corner.z() =  0.5 * height;
 
-            Point p;
-            p.x = radius * sin(thetaCont) * cos(phiCont);
-            p.y = radius * sin(thetaCont) * sin(phiCont);
-            p.z = radius * cos(thetaCont);
-            vertices.push_back(p);
-        }
-    }
+    Eigen::Vector3d lbb_corner;
+    lbb_corner.x() = -0.5 * length;
+    lbb_corner.y() = -0.5 * width;
+    lbb_corner.z() = -0.5 * height;
 
-    // create the bottom vertex
-    Point southPole;
-    southPole.x = 0;
-    southPole.y = 0;
-    southPole.z = -radius;
+    Eigen::Vector3d lbf_corner;
+    lbf_corner.x() = -0.5 * length;
+    lbf_corner.y() = -0.5 * width;
+    lbf_corner.z() =  0.5 * height;
 
-    vertices.push_back(southPole);
+    Eigen::Vector3d rbf_corner;
+    rbf_corner.x() =  0.5 * length;
+    rbf_corner.y() = -0.5 * width;
+    rbf_corner.z() =  0.5 * height;
 
-    // add all the triangles with the north pole as a vertex and all the triangles with the south pole as a vertex
-    for (int i = 0; i < numLatitudes; i++) {
-        // add in top triangle
-        triangles.push_back(0);
-        triangles.push_back(i + 1);
-        if (i == numLatitudes - 1) {
-            triangles.push_back(1);
-        }
-        else {
-            triangles.push_back(i + 2);
-        }
-    }
+    Triangle temp;
 
-    for (int i = 0; i < numLongitudes - 1; i++) {
-        for (int j = 0; j < numLatitudes; j++) {
-            // i, j corresponds to one of the generated vertices
-            int baseVertexIdx = i * numLatitudes + j + 1;
-            int bBaseVertexIdx = baseVertexIdx + numLatitudes;
-            int brBaseVertexIdx = bBaseVertexIdx + 1;
-            int rBaseVertexIdx = baseVertexIdx + 1;
+    // Front face triangles
+    temp.a = lbf_corner;
+    temp.b = rbf_corner;
+    temp.c = ltf_corner;
+    trianglesOut.push_back(temp);
 
-            if ((brBaseVertexIdx - 1)/numLatitudes != (bBaseVertexIdx - 1)/numLatitudes) {
-                brBaseVertexIdx -= numLatitudes;
+    temp.a = rtf_corner;
+    temp.b = ltf_corner;
+    temp.c = rbf_corner;
+    trianglesOut.push_back(temp);
+
+    // Right face triangles
+    temp.a = rbf_corner;
+    temp.b = rbb_corner;
+    temp.c = rtf_corner;
+    trianglesOut.push_back(temp);
+
+    temp.a = rtb_corner;
+    temp.b = rtf_corner;
+    temp.c = rbb_corner;
+    trianglesOut.push_back(temp);
+
+    // Back face triangles
+    temp.a = rbb_corner;
+    temp.b = lbb_corner;
+    temp.c = rtb_corner;
+    trianglesOut.push_back(temp);
+
+    temp.a = ltb_corner;
+    temp.b = rtb_corner;
+    temp.c = lbb_corner;
+    trianglesOut.push_back(temp);
+
+    // Left face triangles
+    temp.a = lbb_corner;
+    temp.b = lbf_corner;
+    temp.c = ltb_corner;
+    trianglesOut.push_back(temp);
+
+    temp.a = ltf_corner;
+    temp.b = ltb_corner;
+    temp.c = lbf_corner;
+    trianglesOut.push_back(temp);
+
+    // Bottom face triangles
+    temp.a = rbb_corner;
+    temp.b = rbf_corner;
+    temp.c = lbb_corner;
+    trianglesOut.push_back(temp);
+
+    temp.a = lbf_corner;
+    temp.b = lbb_corner;
+    temp.c = rbf_corner;
+    trianglesOut.push_back(temp);
+
+    // Top face triangles
+    temp.a = rtf_corner;
+    temp.b = rtb_corner;
+    temp.c = ltf_corner;
+    trianglesOut.push_back(temp);
+
+    temp.a = ltb_corner;
+    temp.b = ltf_corner;
+    temp.c = rtb_corner;
+    trianglesOut.push_back(temp);
+}
+
+template <typename Discretizer>
+static
+void CreateGridMesh(
+    const VoxelGridBase<Discretizer>& vg,
+    std::vector<Triangle>& vg_mesh)
+{
+    std::vector<Triangle> voxel_mesh;
+    CreateBoxMesh(vg.res().x(), vg.res().y(), vg.res().z(), voxel_mesh);
+
+    for (int x = 0; x < vg.sizeX(); x++) {
+        for (int y = 0; y < vg.sizeY(); y++) {
+            for (int z = 0; z < vg.sizeZ(); z++) {
+                const MemoryCoord mc(x, y, z);
+                const WorldCoord wc(vg.memoryToWorld(mc));
+
+                Eigen::Vector3d wp(wc.x, wc.y, wc.z);
+
+                // translate all triangles by the voxel position
+                for (const Triangle& triangle : voxel_mesh) {
+                    Triangle t(
+                            triangle.a + wp,
+                            triangle.b + wp,
+                            triangle.c + wp);
+                    vg_mesh.push_back(t);
+                }
             }
-
-            if ((rBaseVertexIdx - 1)/numLatitudes != (baseVertexIdx - 1)/numLatitudes) {
-                rBaseVertexIdx -= numLatitudes;
-            }
-
-            triangles.push_back(baseVertexIdx);
-            triangles.push_back(bBaseVertexIdx);
-            triangles.push_back(brBaseVertexIdx);
-
-            triangles.push_back(baseVertexIdx);
-            triangles.push_back(brBaseVertexIdx);
-            triangles.push_back(rBaseVertexIdx);
         }
-    }
-
-    for (int i = 0; i < numLatitudes; i++) {
-        // add in bottom triangle
-        triangles.push_back(vertices.size() - 1);
-        if (i == 0) {
-            triangles.push_back(vertices.size() - 1 - numLatitudes);
-        }
-        else {
-            triangles.push_back(vertices.size() - 1 - i);
-        }
-        triangles.push_back(vertices.size() - 1 - (i + 1));
-    }
-
-    // translate the sphere to its proper location
-    for (int i = 0; i < (int)vertices.size(); i++) {
-        Point& p = vertices[i];
-        p.x += sphereX;
-        p.y += sphereY;
-        p.z += sphereZ;
     }
 }
 
-void Voxelizer::createBoxMesh(const vector<double>& pos, const vector<double>& dims, vector<Point>& vertices,
-                              vector<int>& indices)
-{
-    vertices.clear();
-    indices.clear();
-
-    double xPos, yPos, zPos;
-    double xLength, yLength, zLength;
-
-    // get the coordinates of the center of the box
-    xPos = pos.size() < 1 ? 0.0 : pos[0]; xLength = dims.size() < 1 ? 1.0 : dims[0];
-    yPos = pos.size() < 2 ? 0.0 : pos[1]; yLength = dims.size() < 2 ? 1.0 : dims[1];
-    zPos = pos.size() < 3 ? 0.0 : pos[2]; zLength = dims.size() < 3 ? 1.0 : dims[2];
-
-    Point rightTopBackCorner;
-    rightTopBackCorner.x = xPos + 0.5 * xLength;
-    rightTopBackCorner.y = yPos + 0.5 * yLength;
-    rightTopBackCorner.z = zPos - 0.5 * zLength;
-
-    Point leftTopBackCorner;
-    leftTopBackCorner.x = xPos - 0.5 * xLength;
-    leftTopBackCorner.y = yPos + 0.5 * yLength;
-    leftTopBackCorner.z = zPos - 0.5 * zLength;
-
-    Point leftTopFrontCorner;
-    leftTopFrontCorner.x = xPos - 0.5 * xLength;
-    leftTopFrontCorner.y = yPos + 0.5 * yLength;
-    leftTopFrontCorner.z = zPos + 0.5 * zLength;
-
-    Point rightTopFrontCorner;
-    rightTopFrontCorner.x = xPos + 0.5 * xLength;
-    rightTopFrontCorner.y = yPos + 0.5 * yLength;
-    rightTopFrontCorner.z = zPos + 0.5 * zLength;
-
-    Point rightBottomBackCorner;
-    rightBottomBackCorner.x = xPos + 0.5 * xLength;
-    rightBottomBackCorner.y = yPos - 0.5 * yLength;
-    rightBottomBackCorner.z = zPos - 0.5 * zLength;
-
-    Point leftBottomBackCorner;
-    leftBottomBackCorner.x = xPos - 0.5 * xLength;
-    leftBottomBackCorner.y = yPos - 0.5 * yLength;
-    leftBottomBackCorner.z = zPos - 0.5 * zLength;
-
-    Point leftBottomFrontCorner;
-    leftBottomFrontCorner.x = xPos - 0.5 * xLength;
-    leftBottomFrontCorner.y = yPos - 0.5 * yLength;
-    leftBottomFrontCorner.z = zPos + 0.5 * zLength;
-
-    Point rightBottomFrontCorner;
-    rightBottomFrontCorner.x = xPos + 0.5 * xLength;
-    rightBottomFrontCorner.y = yPos - 0.5 * yLength;
-    rightBottomFrontCorner.z = zPos + 0.5 * zLength;
-
-    vertices.push_back(leftBottomBackCorner);
-    vertices.push_back(rightBottomBackCorner);
-    vertices.push_back(leftTopBackCorner);
-    vertices.push_back(rightTopBackCorner);
-    vertices.push_back(leftBottomFrontCorner);
-    vertices.push_back(rightBottomFrontCorner);
-    vertices.push_back(leftTopFrontCorner);
-    vertices.push_back(rightTopFrontCorner);
-
-    indices.push_back(0); indices.push_back(2); indices.push_back(1); // back faces
-    indices.push_back(1); indices.push_back(2); indices.push_back(3);
-    indices.push_back(5); indices.push_back(1); indices.push_back(7); // right face
-    indices.push_back(1); indices.push_back(3); indices.push_back(7);
-    indices.push_back(5); indices.push_back(7); indices.push_back(4); // front face
-    indices.push_back(4); indices.push_back(7); indices.push_back(6);
-    indices.push_back(4); indices.push_back(6); indices.push_back(0); // left face
-    indices.push_back(0); indices.push_back(6); indices.push_back(2);
-    indices.push_back(6); indices.push_back(7); indices.push_back(2); // top face
-    indices.push_back(7); indices.push_back(3); indices.push_back(2);
-    indices.push_back(5); indices.push_back(0); indices.push_back(1); // bottom face
-    indices.push_back(4); indices.push_back(5); indices.push_back(0);
-}
-
-void Voxelizer::createCylinderMesh(const vector<double>& pos, double length, double radius, vector<Point>& vertices,
-                                   vector<int>& indices)
-{
-    const int numPtsOnRim = 16;
-    const double pi = 3.1415926535;
-
-    for (int i = 0; i < numPtsOnRim; i++) {
-        double theta = 2.0 * pi * (double)i / double(numPtsOnRim);
-        Point p;
-        p.x = radius * cos(theta);
-        p.y = radius * sin(theta);
-        p.z = 0.5 * length;
-        vertices.push_back(p);
-    }
-
-    for (int i = 0; i < numPtsOnRim; i++) {
-        double theta = 2.0 * pi * (double)i / double(numPtsOnRim);
-        Point p;
-        p.x = radius * cos(theta);
-        p.y = radius * sin(theta);
-        p.z = -0.5 * length;
-        vertices.push_back(p);
-    }
-
-    for (int i = 0; i < numPtsOnRim; i++) {
-        indices.push_back(i);
-        indices.push_back((i + 1) % numPtsOnRim);
-        indices.push_back(i + numPtsOnRim);
-
-        indices.push_back((i + 1) % numPtsOnRim);
-        indices.push_back(((i + 1) % numPtsOnRim) + numPtsOnRim);
-        indices.push_back(i + numPtsOnRim);
-    }
-}
-
-bool Voxelizer::getAxisAlignedBoundingBox(
-    const std::vector<geometry_msgs::Point>& vertices,
-    geometry_msgs::Point& min,
-    geometry_msgs::Point& max)
+bool ComputeAxisAlignedBoundingBox(
+    const std::vector<Eigen::Vector3d>& vertices,
+    Eigen::Vector3d& min,
+    Eigen::Vector3d& max)
 {
     if (vertices.empty()) {
         return false;
     }
 
-    min.x = max.x = vertices[0].x;
-    min.y = max.y = vertices[0].y;
-    min.z = max.z = vertices[0].z;
+    min.x() = max.x() = vertices[0].x();
+    min.y() = max.y() = vertices[0].y();
+    min.z() = max.z() = vertices[0].z();
 
-    for (const geometry_msgs::Point& vertex : vertices) {
-        if (vertex.x < min.x) {
-            min.x = vertex.x;
+    for (const Eigen::Vector3d& vertex : vertices) {
+        if (vertex.x() < min.x()) {
+            min.x() = vertex.x();
         }
-        if (vertex.x > max.x) {
-            max.x = vertex.x;
+        if (vertex.x() > max.x()) {
+            max.x() = vertex.x();
         }
-        if (vertex.y < min.y) {
-            min.y = vertex.y;
+        if (vertex.y() < min.y()) {
+            min.y() = vertex.y();
         }
-        if (vertex.y > max.y) {
-            max.y = vertex.y;
+        if (vertex.y() > max.y()) {
+            max.y() = vertex.y();
         }
-        if (vertex.z < min.z) {
-            min.z = vertex.z;
+        if (vertex.z() < min.z()) {
+            min.z() = vertex.z();
         }
-        if (vertex.z > max.z) {
-            max.z = vertex.z;
+        if (vertex.z() > max.z()) {
+            max.z() = vertex.z();
         }
     }
 
     return true;
 }
 
-void Voxelizer::createCubeMesh(double x, double y, double z, double length, vector<Triangle>& trianglesOut)
-{
-    trianglesOut.clear();
-
-    Point rightTopBackCorner;
-    rightTopBackCorner.x = x + 0.5 * length;
-    rightTopBackCorner.y = y + 0.5 * length;
-    rightTopBackCorner.z = z - 0.5 * length;
-
-    Point leftTopBackCorner;
-    leftTopBackCorner.x = x - 0.5 * length;
-    leftTopBackCorner.y = y + 0.5 * length;
-    leftTopBackCorner.z = z - 0.5 * length;
-
-    Point leftTopFrontCorner;
-    leftTopFrontCorner.x = x - 0.5 * length;
-    leftTopFrontCorner.y = y + 0.5 * length;
-    leftTopFrontCorner.z = z + 0.5 * length;
-
-    Point rightTopFrontCorner;
-    rightTopFrontCorner.x = x + 0.5 * length;
-    rightTopFrontCorner.y = y + 0.5 * length;
-    rightTopFrontCorner.z = z + 0.5 * length;
-
-    Point rightBottomBackCorner;
-    rightBottomBackCorner.x = x + 0.5 * length;
-    rightBottomBackCorner.y = y - 0.5 * length;
-    rightBottomBackCorner.z = z - 0.5 * length;
-
-    Point leftBottomBackCorner;
-    leftBottomBackCorner.x = x - 0.5 * length;
-    leftBottomBackCorner.y = y - 0.5 * length;
-    leftBottomBackCorner.z = z - 0.5 * length;
-
-    Point leftBottomFrontCorner;
-    leftBottomFrontCorner.x = x - 0.5 * length;
-    leftBottomFrontCorner.y = y - 0.5 * length;
-    leftBottomFrontCorner.z = z + 0.5 * length;
-
-    Point rightBottomFrontCorner;
-    rightBottomFrontCorner.x = x + 0.5 * length;
-    rightBottomFrontCorner.y = y - 0.5 * length;
-    rightBottomFrontCorner.z = z + 0.5 * length;
-
-    Triangle temp;
-
-    // Front face triangles
-    temp.p1 = leftBottomFrontCorner;
-    temp.p2 = rightBottomFrontCorner;
-    temp.p3 = leftTopFrontCorner;
-    trianglesOut.push_back(temp);
-
-    temp.p1 = rightTopFrontCorner;
-    temp.p2 = leftTopFrontCorner;
-    temp.p3 = rightBottomFrontCorner;
-    trianglesOut.push_back(temp);
-
-    // Right face triangles
-    temp.p1 = rightBottomFrontCorner;
-    temp.p2 = rightBottomBackCorner;
-    temp.p3 = rightTopFrontCorner;
-    trianglesOut.push_back(temp);
-
-    temp.p1 = rightTopBackCorner;
-    temp.p2 = rightTopFrontCorner;
-    temp.p3 = rightBottomBackCorner;
-    trianglesOut.push_back(temp);
-
-    // Back face triangles
-    temp.p1 = rightBottomBackCorner;
-    temp.p2 = leftBottomBackCorner;
-    temp.p3 = rightTopBackCorner;
-    trianglesOut.push_back(temp);
-
-    temp.p1 = leftTopBackCorner;
-    temp.p2 = rightTopBackCorner;
-    temp.p3 = leftBottomBackCorner;
-    trianglesOut.push_back(temp);
-
-    // Left face triangles
-    temp.p1 = leftBottomBackCorner;
-    temp.p2 = leftBottomFrontCorner;
-    temp.p3 = leftTopBackCorner;
-    trianglesOut.push_back(temp);
-
-    temp.p1 = leftTopFrontCorner;
-    temp.p2 = leftTopBackCorner;
-    temp.p3 = leftBottomFrontCorner;
-    trianglesOut.push_back(temp);
-
-    // Bottom face triangles
-    temp.p1 = rightBottomBackCorner;
-    temp.p2 = rightBottomFrontCorner;
-    temp.p3 = leftBottomBackCorner;
-    trianglesOut.push_back(temp);
-
-    temp.p1 = leftBottomFrontCorner;
-    temp.p2 = leftBottomBackCorner;
-    temp.p3 = rightBottomFrontCorner;
-    trianglesOut.push_back(temp);
-
-    // Top face triangles
-    temp.p1 = rightTopFrontCorner;
-    temp.p2 = rightTopBackCorner;
-    temp.p3 = leftTopFrontCorner;
-    trianglesOut.push_back(temp);
-
-    temp.p1 = leftTopBackCorner;
-    temp.p2 = leftTopFrontCorner;
-    temp.p3 = rightTopBackCorner;
-    trianglesOut.push_back(temp);
-}
-
-bool Voxelizer::isInDiscreteBoundingBox(int i, int j, int k, int minx, int miny, int minz,
-                                             int maxx, int maxy, int maxz)
+bool IsInDiscreteBoundingBox(
+    const MemoryCoord& mc,
+    const MemoryCoord& minmc,
+    const MemoryCoord& maxmc)
 {
     bool inside = true;
-    inside &= i >= minx && i <= maxx;
-    inside &= j >= miny && j <= maxy;
-    inside &= k >= minz && k <= maxz;
+    inside &= mc.x >= minmc.x && mc.x <= maxmc.x;
+    inside &= mc.y >= minmc.y && mc.y <= maxmc.y;
+    inside &= mc.z >= minmc.z && mc.z <= maxmc.z;
     return inside;
 }
 
-bool Voxelizer::intersects(const Triangle& tr1, const Triangle& tr2, double eps)
+bool Intersects(const Triangle& tr1, const Triangle& tr2, double eps)
 {
     // Vertices 0, 1, and 2 on triangle 1
-    Eigen::Vector3d v10(tr1.p1.x, tr1.p1.y, tr1.p1.z);
-    Eigen::Vector3d v11(tr1.p2.x, tr1.p2.y, tr1.p2.z);
-    Eigen::Vector3d v12(tr1.p3.x, tr1.p3.y, tr1.p3.z);
+    Eigen::Vector3d v10(tr1.a.x(), tr1.a.y(), tr1.a.z());
+    Eigen::Vector3d v11(tr1.b.x(), tr1.b.y(), tr1.b.z());
+    Eigen::Vector3d v12(tr1.c.x(), tr1.c.y(), tr1.c.z());
 
     // Vertices 0, 1, and 2 on triangle 2
-    Eigen::Vector3d v20(tr2.p1.x, tr2.p1.y, tr2.p1.z);
-    Eigen::Vector3d v21(tr2.p2.x, tr2.p2.y, tr2.p2.z);
-    Eigen::Vector3d v22(tr2.p3.x, tr2.p3.y, tr2.p3.z);
+    Eigen::Vector3d v20(tr2.a.x(), tr2.a.y(), tr2.a.z());
+    Eigen::Vector3d v21(tr2.b.x(), tr2.b.y(), tr2.b.z());
+    Eigen::Vector3d v22(tr2.c.x(), tr2.c.y(), tr2.c.z());
 
     ////////////////////////////////////////////////////////////////////////////////
     /// Reject if Triangle 1's vertices are all on the same side of Triangle 2
@@ -1188,7 +939,7 @@ bool Voxelizer::intersects(const Triangle& tr1, const Triangle& tr2, double eps)
         ////////////////////////////////////////////////////////////////////////////////
 
         // Project the coplanar triangles into the X-Y plane
-        vector<Eigen::Vector2d> firstTri2DVertices;
+        std::vector<Eigen::Vector2d> firstTri2DVertices;
         Eigen::Vector2d u1;
         u1[0] = v10[0]; u1[1] = v10[1];
         firstTri2DVertices.push_back(u1);
@@ -1197,7 +948,7 @@ bool Voxelizer::intersects(const Triangle& tr1, const Triangle& tr2, double eps)
         u1[0] = v12[0]; u1[1] = v12[1];
         firstTri2DVertices.push_back(u1);
 
-        vector<Eigen::Vector2d> secondTri2DVertices;
+        std::vector<Eigen::Vector2d> secondTri2DVertices;
         Eigen::Vector2d u2;
         u2[0] = v20[0]; u2[1] = v20[1];
         secondTri2DVertices.push_back(u2);
@@ -1284,8 +1035,8 @@ bool Voxelizer::intersects(const Triangle& tr1, const Triangle& tr2, double eps)
         Eigen::Vector3d u22To3D(secondTri2DVertices[2][0], secondTri2DVertices[2][1], 0.0);
 
         // Awesome code re-use
-        if(pointOnTriangle(firstTriangleCenterTo3D, u20To3D, u21To3D, u22To3D) ||
-           pointOnTriangle(secondTriangleCenterTo3D, u10To3D, u11To3D, u12To3D))
+        if(PointOnTriangle(firstTriangleCenterTo3D, u20To3D, u21To3D, u22To3D) ||
+           PointOnTriangle(secondTriangleCenterTo3D, u10To3D, u11To3D, u12To3D))
         {
             return true;
         }
@@ -1330,7 +1081,7 @@ bool Voxelizer::intersects(const Triangle& tr1, const Triangle& tr2, double eps)
     Eigen::Vector3d D = n1.cross(n2);
 
     ////////////////////////////////////////////////////////////////////////////////////////
-    /// Get the interval on the line where Triangle 1 intersects
+    /// Get the interval on the line where Triangle 1 Intersects
     ////////////////////////////////////////////////////////////////////////////////////////
 
     double t1;
@@ -1360,7 +1111,7 @@ bool Voxelizer::intersects(const Triangle& tr1, const Triangle& tr2, double eps)
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////
-    /// Get the interval on the line where Triangle 2 intersects
+    /// Get the interval on the line where Triangle 2 Intersects
     ////////////////////////////////////////////////////////////////////////////////////////
 
     double t3;
@@ -1416,8 +1167,11 @@ bool Voxelizer::intersects(const Triangle& tr1, const Triangle& tr2, double eps)
     return false;
 }
 
-bool Voxelizer::pointOnTriangle(const Eigen::Vector3d& point, const Eigen::Vector3d& vertex1,
-                                const Eigen::Vector3d& vertex2, const Eigen::Vector3d& vertex3)
+bool PointOnTriangle(
+    const Eigen::Vector3d& point,
+    const Eigen::Vector3d& vertex1,
+    const Eigen::Vector3d& vertex2,
+    const Eigen::Vector3d& vertex3)
 {
     Eigen::Vector3d center;
     center[0] = (vertex1[0] + vertex2[0] + vertex3[0]) / 3.0;
@@ -1459,67 +1213,75 @@ bool Voxelizer::pointOnTriangle(const Eigen::Vector3d& point, const Eigen::Vecto
     return insideCcw || insideCw;
 }
 
-void Voxelizer::scanFill(
-    std::vector<bool>& voxelGrid,
-    int length, int width, int height)
+template <typename Discretizer>
+void ScanFill(VoxelGridBase<Discretizer>& vg)
 {
-    GridIndexer indexer(length, width, height);
+    for (int x = 0; x < vg.sizeX(); x++) {
+        for (int y = 0; y < vg.sizeY(); y++) {
+            const int OUTSIDE = 0;
+            const int ON_BOUNDARY_FROM_OUTSIDE = 1;
+            const int INSIDE = 2;
+            const int ON_BOUNDARY_FROM_INSIDE = 4;
 
-    for (int i = 0; i < length; i++) {
-        for (int j = 0; j < width; j++) {
-            const int OUTSIDE = 0, ON_BOUNDARY_FROM_OUTSIDE = 1, INSIDE = 2, ON_BOUNDARY_FROM_INSIDE = 4;
-            int scanState = OUTSIDE;
+            int scan_state = OUTSIDE;
 
-            for (int k = 0; k < height; k++) {
-                if (scanState == OUTSIDE && voxelGrid[indexer(i, j, k)]) {
-                    scanState = ON_BOUNDARY_FROM_OUTSIDE;
+            for (int z = 0; z < vg.sizeZ(); z++) {
+                if (scan_state == OUTSIDE && vg[MemoryCoord(x, y, z)]) {
+                    scan_state = ON_BOUNDARY_FROM_OUTSIDE;
                 }
-                else if (scanState == ON_BOUNDARY_FROM_OUTSIDE && !voxelGrid[indexer(i, j, k)]) {
+                else if (scan_state == ON_BOUNDARY_FROM_OUTSIDE &&
+                    !vg[MemoryCoord(x, y, z)])
+                {
                     bool allEmpty = true;
-                    for (int l = k; l < height; l++) {
-                        allEmpty &= !voxelGrid[indexer(i, j, l)];
+                    for (int l = z; l < vg.sizeZ(); l++) {
+                        allEmpty &= !vg[MemoryCoord(x, y, l)];
                     }
                     if (allEmpty) {
-                        scanState = OUTSIDE;
+                        scan_state = OUTSIDE;
                     }
                     else {
-                        scanState = INSIDE;
-                        voxelGrid[indexer(i, j, k)] = true;
+                        scan_state = INSIDE;
+                        vg[MemoryCoord(x, y, z)] = true;
                     }
                 }
-                else if (scanState == INSIDE && !voxelGrid[indexer(i, j, k)]) {
-                    voxelGrid[indexer(i, j, k)] = true;
+                else if (scan_state == INSIDE && !vg[MemoryCoord(x, y, z)]) {
+                    vg[MemoryCoord(x, y, z)] = true;
                 }
-                else if (scanState == INSIDE && voxelGrid[indexer(i, j, k)]) {
-                    scanState = ON_BOUNDARY_FROM_INSIDE;
+                else if (scan_state == INSIDE && vg[MemoryCoord(x, y, z)]) {
+                    scan_state = ON_BOUNDARY_FROM_INSIDE;
                 }
-                else if (scanState == ON_BOUNDARY_FROM_INSIDE && !voxelGrid[indexer(i, j, k)]) {
-                    scanState = OUTSIDE;
+                else if (scan_state == ON_BOUNDARY_FROM_INSIDE &&
+                    !vg[MemoryCoord(x, y, z)])
+                {
+                    scan_state = OUTSIDE;
                 }
             }
         }
     }
 }
 
-void Voxelizer::transformVertices(const Eigen::Affine3d& transform, vector<Point>& vertices)
+void TransformVertices(
+    const Eigen::Affine3d& transform,
+    std::vector<Eigen::Vector3d>& vertices)
 {
-    for (int i = 0; i < (int)vertices.size(); i++) {
-        Eigen::Vector3d vec(vertices[i].x, vertices[i].y, vertices[i].z);
-        Eigen::Vector3d transVec = transform * vec;
-        vertices[i].x = transVec(0);
-        vertices[i].y = transVec(1);
-        vertices[i].z = transVec(2);
+    for (size_t i = 0; i < vertices.size(); i++) {
+        vertices[i] = transform * vertices[i];
     }
 }
 
-double Distance(double a, double b, double c, double d, double x, double y, double z)
+double Distance(
+    double a, double b, double c, double d,
+    double x, double y, double z)
 {
     double dist = (a * x + b * y + c * z + d) / sqrt(a * a + b * b + c * c);
     return dist;
 }
 
-double Distance(double p1x, double p1y, double p1z, double p2x, double p2y, double p2z,
-                double radius_sqrd, double x, double y, double z)
+double Distance(
+    double p1x, double p1y, double p1z,
+    double p2x, double p2y, double p2z,
+    double radius_sqrd,
+    double x, double y, double z)
 {
     double dx = p2x - p1x;
     double dy = p2y - p1y;
@@ -1546,133 +1308,164 @@ double Distance(double p1x, double p1y, double p1z, double p2x, double p2y, doub
     }
 }
 
-/// An Accurate Method for Voxelizing Polygon Meshes - Huang, Yagel, Filippov, Kurzion
-void VoxelizeTriangle(
-    const geometry_msgs::Point& p1,
-    const geometry_msgs::Point& p2,
-    const geometry_msgs::Point& p3,
-    unsigned char* grid,
-    int width,
-    int height,
-    int depth)
+bool CompareX(const Eigen::Vector3d& u, const Eigen::Vector3d& v)
 {
-    Eigen::Vector3d p_1(p1.x, p1.y, p1.z);
-    Eigen::Vector3d p_2(p2.x, p2.y, p2.z);
-    Eigen::Vector3d p_3(p3.x, p3.y, p3.z);
+    return u.x() < v.x();
+}
 
-    // check for colinearity and counterclockwiseness
-    double det = ((p_2 - p_1).cross(p_3 - p_1).norm());
-    if (det == 0) {
+bool CompareY(const Eigen::Vector3d& u, const Eigen::Vector3d& v)
+{
+    return u.y() < v.y();
+}
+
+bool CompareZ(const Eigen::Vector3d& u, const Eigen::Vector3d& v)
+{
+    return u.z() < v.z();
+}
+
+/////////////////////////////////
+// Public Function Definitions //
+/////////////////////////////////
+
+void VoxelizeBox(
+    double length,
+    double width,
+    double height,
+    double res,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill)
+{
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> triangles;
+    CreateIndexedBoxMesh(length, width, height, vertices, triangles);
+    VoxelizeMesh(vertices, triangles, res, voxels, fill);
+}
+
+void VoxelizeBox(
+    double length,
+    double width,
+    double height,
+    const Eigen::Affine3d& pose,
+    double res,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill)
+{
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> triangles;
+    CreateIndexedBoxMesh(length, width, height, vertices, triangles);
+
+    TransformVertices(pose, vertices);
+
+    VoxelizeMesh(vertices, triangles, res, voxels, fill);
+}
+
+void VoxelizeSphere(
+    double radius,
+    double res,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill)
+{
+    // TODO: make lng_count and lat_count lines configurable or parameters
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> triangles;
+    CreateIndexedSphereMesh(radius, 7, 8, vertices, triangles);
+
+    VoxelizeMesh(vertices, triangles, res, voxels, fill);
+}
+
+void VoxelizeSphere(
+    double radius,
+    const Eigen::Affine3d& pose,
+    double res,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill)
+{
+    // TODO: make lng_count and lat_count lines configurable or parameters
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> triangles;
+    CreateIndexedSphereMesh(radius, 7, 8, vertices, triangles);
+
+    TransformVertices(pose, vertices);
+
+    VoxelizeMesh(vertices, triangles, res, voxels, fill);
+}
+
+void VoxelizeCylinder(
+    double radius,
+    double length,
+    double res,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill)
+{
+    // TODO: make rim_count configurable or parameters
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> triangles;
+    CreateIndexedCylinderMesh(radius, length, vertices, triangles);
+
+    VoxelizeMesh(vertices, triangles, res, voxels, fill);
+}
+
+void VoxelizeCylinder(
+    double radius,
+    double length,
+    const Eigen::Affine3d& pose,
+    double res,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill)
+{
+    // TODO: make rim_count configurable or parameters
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> triangles;
+    CreateIndexedCylinderMesh(radius, length, vertices, triangles);
+
+    TransformVertices(pose, vertices);
+    
+    VoxelizeMesh(vertices, triangles, res, voxels, fill);
+}
+
+void VoxelizeMesh(
+    const std::vector<Eigen::Vector3d>& vertices,
+    const std::vector<int>& indices,
+    double res,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill)
+{
+    if (((int)indices.size()) % 3 != 0) {
+        std::cerr << "Incorrect indexed triangles format" << std::endl;
         return;
     }
 
-    using Eigen::Vector3d;
+    voxels.clear();
 
-    // thickness parameters
-//    double t = 0.5 * sqrt(3.0);
-//    double t2 = 3.0 / 4.0;
+    Eigen::Vector3d min;
+    Eigen::Vector3d max;
+    if (!ComputeAxisAlignedBoundingBox(vertices, min, max)) {
+        std::cerr << "Failed to compute AABB of mesh vertices" << std::endl;
+        return;
+    }
 
-    double t = 0.5 * 1.0;
-    double t2 = 0.25;
+    const Eigen::Vector3d size = max - min;
+    HalfResVoxelGrid vg(min, size, Eigen::Vector3d(res, res, res));
 
-    int min_x = (int)(p1.x < p2.x ? (p1.x < p3.x ? p1.x : p3.x) : (p2.x < p3.x ? p2.x : p3.x));
-    min_x = std::max(min_x, 0);
+    const bool awesome = true;
+    if (awesome) {
+        VoxelizeMeshAwesome(vertices, indices, vg);
+    }
+    else {
+        VoxelizeMeshNaive(vertices, indices, vg);
+    }
 
-    int max_x = (int)((p1.x > p2.x ? (p1.x > p3.x ? p1.x : p3.x) : (p2.x > p3.x ? p2.x : p3.x)));
-    max_x = std::min(max_x, width - 1);
+    if (fill) {
+        ScanFill(vg);
+    }
 
-    int min_y = (int)(p1.y < p2.y ? (p1.y < p3.y ? p1.y : p3.y) : (p2.y < p3.y ? p2.y : p3.y));
-    min_y = std::max(min_y, 0);
-
-    int max_y = (int)((p1.y > p2.y ? (p1.y > p3.y ? p1.y : p3.y) : (p2.y > p3.y ? p2.y : p3.y)));
-    max_y = std::min(max_y, height - 1);
-
-    int min_z = (int)(p1.z < p2.z ? (p1.z < p3.z ? p1.z : p3.z) : (p2.z < p3.z ? p2.z : p3.z));
-    min_z = std::max(min_z, 0);
-
-    int max_z = (int)((p1.z > p2.z ? (p1.z > p3.z ? p1.z : p3.z) : (p2.z > p3.z ? p2.z : p3.z)));
-    max_z = std::min(max_z, depth - 1);
-
-    // make p_1, p_2, p_3 ccw
-    if (det < 0.0)
-        std::swap(p_1, p_3);
-
-    // get the normal vector for the triangle
-    Eigen::Vector3d u = p_2 - p_1;
-    Eigen::Vector3d v = p_3 - p_2;
-    Eigen::Vector3d w = p_1 - p_3;
-    Eigen::Vector3d n = u.cross(v);
-    n.normalize();
-
-    // get the distance from the origin for the triangle plane
-    double d = -n.dot(p_1);
-
-    // normal to the edge p2 - p1 pointing inwards
-    Vector3d e1 = -u.cross(n);
-    e1.normalize();
-
-    // normal to the edge p3 - p2 pointing inwards
-    Vector3d e2 = -v.cross(n);
-    e2.normalize();
-
-    // normal to the edge p1 - p3 pointing inwards
-    Vector3d e3 = -w.cross(n);
-    e3.normalize();
-
-    // distances of the edge-guard planes from the origin
-    double d1 = -e1.dot(p_1);
-    double d2 = -e2.dot(p_2);
-    double d3 = -e3.dot(p_3);
-
-    // consider all voxels that this triangle can voxelize
-    for (int x = min_x; x <= max_x; x++) {
-        for (int y = min_y; y <= max_y; y++) {
-            for (int z = min_z; z <= max_z; z++) {
-                if (grid[width * height * z + width * y + x]) {
-                    continue;
-                }
-
-                // check if the voxel point is in the plane of the triangle and within the edges
-                double voxel_x = x + 0.5;
-                double voxel_y = y + 0.5;
-                double voxel_z = z + 0.5;
-                Vector3d voxel_p(voxel_x, voxel_y, voxel_z);
-
-                double dx1 = voxel_p(0) - p_1(0); double dy1 = voxel_p(1) - p_1(1); double dz1 = voxel_p(2) - p_1(2);
-                double dx2 = voxel_p(0) - p_2(0); double dy2 = voxel_p(1) - p_2(1); double dz2 = voxel_p(2) - p_2(2);
-                double dx3 = voxel_p(0) - p_3(0); double dy3 = voxel_p(1) - p_3(1); double dz3 = voxel_p(2) - p_3(2);
-
-                if ((dx1 * dx1 + dy1 * dy1 + dz1 * dz1) <= t2 ||
-                    (dx2 * dx2 + dy2 * dy2 + dz2 * dz2) <= t2 ||
-                    (dx3 * dx3 + dy3 * dy3 + dz3 * dz3) <= t2)
-                {
-                    // check for a vertex filling in this voxel
-                    grid[width * height * z + width * y + x] = 1;
-                }
-                else if (Distance(p_1(0), p_1(1), p_1(2), p_2(0), p_2(1), p_2(2), t2, voxel_p(0), voxel_p(1), voxel_p(2)) != -1.0 ||
-                         Distance(p_2(0), p_2(1), p_2(2), p_3(0), p_3(1), p_3(2), t2, voxel_p(0), voxel_p(1), voxel_p(2)) != -1.0 ||
-                         Distance(p_3(0), p_3(1), p_3(2), p_1(0), p_1(1), p_1(2), t2, voxel_p(0), voxel_p(1), voxel_p(2)) != -1.0)
-                {
-                    // then check for an edge
-                    grid[width * height * z + width * y + x] = 1;
-                }
-                else {
-                    // then check for inside the triangle
-                    if ((
-                            // inside triangle thickness
-                            utils::Signd(n.dot(voxel_p) + (d + t)) != utils::Signd(n.dot(voxel_p) + (d - t))
-                        ) &&
-                        (
-                            // inside the edge bounding planes
-                            (
-                                (e1.dot(voxel_p) + d1 > 0.0) &&
-                                (e2.dot(voxel_p) + d2 > 0.0) &&
-                                (e3.dot(voxel_p) + d3 > 0.0)
-                            )
-                        ))
-                    {
-                        grid[width * height * z + width * y + x] = 1;
-                    }
+    for (int x = 0; x < vg.sizeX(); x++) {
+        for (int y = 0; y < vg.sizeY(); y++) {
+            for (int z = 0; z < vg.sizeZ(); z++) {
+                MemoryCoord mc(x, y, z);
+                if (vg[mc]) {
+                    WorldCoord wc = vg.memoryToWorld(mc);
+                    voxels.push_back(Eigen::Vector3d(wc.x, wc.y, wc.z));
                 }
             }
         }
@@ -1680,89 +1473,191 @@ void VoxelizeTriangle(
 }
 
 void VoxelizeMesh(
-    const std::vector<geometry_msgs::Point>& vertices,
-    const std::vector<int>& indices,
-    unsigned char* grid,
-    int width,
-    int height,
-    int depth)
+    const std::vector<Eigen::Vector3d>& vertices,
+    const std::vector<int>& triangles,
+    const Eigen::Affine3d& pose,
+    double res,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill)
 {
-    for (int i = 0; i < (int)indices.size() / 3; i++) {
-        VoxelizeTriangle(
-            vertices[indices[3 * i]],
-            vertices[indices[3 * i + 1]],
-            vertices[indices[3 * i + 2]],
-            grid, width, height, depth);
-    }
+    std::vector<Eigen::Vector3d> v_copy = vertices;
+    TransformVertices(pose, v_copy);
+    VoxelizeMesh(v_copy, triangles, res, voxels, fill);
 }
 
-static bool CompareX(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2)
+void VoxelizeMesh(
+    const std::vector<Eigen::Vector3d>& vertices,
+    const std::vector<int>& triangles,
+    const Eigen::Vector3d& origin,
+    double res,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill)
 {
-    return p1.x < p2.x;
+    // TODO: voxelize with a minimum-aligned discretization policy
 }
 
-static bool CompareY(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2)
+void VoxelizeSphereList(
+    const std::vector<double>& radii,
+    const std::vector<Eigen::Affine3d>& poses,
+    double res,
+    std::vector<Eigen::Vector3d>& voxels,
+    double& volume,
+    bool unique,
+    bool fill)
 {
-    return p1.y < p2.y;
-}
-
-static bool CompareZ(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2)
-{
-    return p1.z < p2.z;
-}
-
-void VoxelizeMesh(const std::vector<geometry_msgs::Point>& vertices, const std::vector<int>& indices,
-                  double cell_size, std::vector<std::vector<double> >& out)
-{
-    out.clear();
-    double min_cx = std::min_element(vertices.begin(), vertices.end(), CompareX)->x;
-    double min_cy = std::min_element(vertices.begin(), vertices.end(), CompareY)->y;
-    double min_cz = std::min_element(vertices.begin(), vertices.end(), CompareZ)->z;
-    int min_x = (int)(min_cx / cell_size);
-    int max_x = (int)(std::max_element(vertices.begin(), vertices.end(), CompareX)->x / cell_size) + 1;
-    int min_y = (int)(min_cy / cell_size);
-    int max_y = (int)(std::max_element(vertices.begin(), vertices.end(), CompareY)->y / cell_size) + 1;
-    int min_z = (int)(min_cz / cell_size);
-    int max_z = (int)(std::max_element(vertices.begin(), vertices.end(), CompareZ)->z / cell_size) + 1;
-
-    int width = max_x - min_x;
-    int height = max_y - min_y;
-    int depth = max_z - min_z;
-
-    std::vector<geometry_msgs::Point> vertices_copy = vertices;
-    for (std::vector<geometry_msgs::Point>::iterator it = vertices_copy.begin(); it != vertices_copy.end(); ++it) {
-        // shift the mesh to be in the first quadrant right up next to the origin
-        it->x -= min_cx;
-        it->y -= min_cy;
-        it->z -= min_cz;
-        // scale to grid
-        it->x /= cell_size;
-        it->y /= cell_size;
-        it->z /= cell_size;
-    }
-    unsigned char* grid = new unsigned char[width * height * depth];
-    for (int i = 0; i < width * height * depth; i++) {
-        grid[i] = 0;
+    if (radii.size() != poses.size()) {
+        return;
     }
 
-    VoxelizeMesh(vertices_copy, indices, grid, width, height, depth);
-    for (int x = 0; x < width; x++) {
-        for (int y = 0; y < height; y++) {
-            for (int z = 0; z < depth; z++) {
-                if (grid[width * height * z + width * y + x] != 0) {
-                    double cx = (x + 0.5) * cell_size + min_cx;
-                    double cy = (y + 0.5) * cell_size + min_cy;
-                    double cz = (z + 0.5) * cell_size + min_cz;
-                    std::vector<double> coord(3);
-                    coord[0] = cx;
-                    coord[1] = cy;
-                    coord[2] = cz;
-                    out.push_back(coord);
-                }
+    voxels.clear();
+
+    for (size_t i = 0; i < radii.size(); i++) {
+        std::vector<Eigen::Vector3d> vertices;
+        std::vector<int> indices;
+        CreateIndexedSphereMesh(radii[i], 9, 10, vertices, indices);
+
+        TransformVertices(poses[i], vertices);
+
+        std::vector<Eigen::Vector3d> sphere_voxels;
+        VoxelizeMesh(vertices, indices, res, sphere_voxels, fill);
+
+        voxels.insert(voxels.end(), sphere_voxels.begin(), sphere_voxels.end());
+    }
+
+    int duplicateIdx = (int)voxels.size();
+    for (int i = 0; i < duplicateIdx; i++) {
+        for (int j = i + 1; j < duplicateIdx; j++) {
+            Eigen::Vector3d dx = voxels[i] = voxels[j];
+
+            // since all voxels are aligned on the same grid, if the distance is
+            // greater than half the resolution, it has to be the same voxel
+            // (really if distance is just less than the resolution)
+            if (dx.squaredNorm() < (res * res) / 4.0) {
+                std::swap(voxels[duplicateIdx - 1], voxels[j]);
+                duplicateIdx--;
             }
         }
     }
-    delete grid;
+
+    volume = duplicateIdx * res * res * res;
+
+    if (unique) {
+        voxels.resize(duplicateIdx);
+    }
 }
 
+void VoxelizeSphereListQAD(
+    const std::vector<double>& spheres,
+    const std::vector<Eigen::Affine3d>& poses,
+    double res,
+    std::vector<Eigen::Vector3d>& voxels,
+    double& volume,
+    bool unique,      
+    bool fill)
+{
+//    voxels.clear();
+//
+//    // compute the continuous bounding box of all spheres
+//    double minXc = 1000000000.0;
+//    double minYc = 1000000000.0;
+//    double minZc = 1000000000.0;
+//    double maxXc = -1000000000.0;
+//    double maxYc = -1000000000.0;
+//    double maxZc = -1000000000.0;
+//    for (size_t i = 0; i < spheres.size(); i++) {
+//        const double x = spheres[i][0];
+//        const double y = spheres[i][1];
+//        const double z = spheres[i][2];
+//        const double r = spheres[i][3];
+//        if (x - r < minXc) minXc = x - r;
+//        if (y - r < minYc) minYc = y - r;
+//        if (z - r < minZc) minZc = z - r;
+//        if (x + r > maxXc) maxXc = x + r;
+//        if (y + r > maxYc) maxYc = y + r;
+//        if (z + r > maxZc) maxZc = z + r;
+//    }
+//
+//    // compute discrete grid bounds and dimensions
+//    HalfResDiscretizer disc(res);
+//    const int minXd = disc.discretize(minXc);
+//    const int minYd = disc.discretize(minYc);
+//    const int minZd = disc.discretize(minZc);
+//    const int maxXd = disc.discretize(maxXc);
+//    const int maxYd = disc.discretize(maxYc);
+//    const int maxZd = disc.discretize(maxZc);
+//
+//    const int sx = (maxXd - minXd) + 1;
+//    const int sy = (maxYd - minYd) + 1;
+//    const int sz = (maxZd - minZd) + 1;
+//
+//    // create an empty voxel grid
+//    std::vector<int> grid(sx * sy * sz, 0);
+//    Indexer indexer(sx, sy, sz);
+//
+//    // for each of sphere
+//    for (size_t i = 0; i < spheres.size(); i++) {
+//        const double x = spheres[i][0];
+//        const double y = spheres[i][1];
+//        const double z = spheres[i][2];
+//        const double r = spheres[i][3];
+//        const double r2 = r * r;
+//
+//        // iterate over grids in discrete bounding box of sphere
+//        for (int xd = disc.discretize(x - r);
+//            xd <= disc.discretize(x + r); ++xd)
+//        {
+//            for (int yd = disc.discretize(y - r);
+//                yd <= disc.discretize(y + r); ++yd)
+//            {
+//                for (int zd = disc.discretize(z - r);
+//                    zd <= disc.discretize(z + r); ++zd)
+//                {
+//                    const double dx = disc.continuize(xd) - x;
+//                    const double dy = disc.continuize(yd) - y;
+//                    const double dz = disc.continuize(zd) - z;
+//                    const double d2 = dx * dx + dy * dy + dz * dz;
+//                    if (d2 <= r2) {
+//                        const int ix = xd - minXd;
+//                        const int iy = yd - minYd;
+//                        const int iz = zd - minZd;
+//                        // count the number of spheres that enclose this cell
+//                        // center
+//                        ++grid[indexer.to_index(ix, iy, iz)];
+//                    }
+//                }
+//            }
+//        }
+//    }
+//
+//    // run through the voxel grid and sum the volume
+//    std::vector<double> p(3, 0);
+//    volume = 0;
+//    const double cellVolume = res * res * res;
+//    for (int x = 0; x < sx; x++) {
+//        for (int y = 0; y < sy; y++) {
+//            for (int z = 0; z < sz; z++) {
+//                const int gc = grid[indexer.to_index(x, y, z)];
+//                if (gc > 0) {
+//                    volume += cellVolume;
+//
+//                    if (unique) {
+//                        p[0] = disc.continuize(minXd + x);
+//                        p[1] = disc.continuize(minYd + y);
+//                        p[2] = disc.continuize(minZd + z);
+//                        voxels.push_back(p);
+//                    }
+//                    else {
+//                        for (int i = 0; i < gc; ++i) {
+//                            p[0] = disc.continuize(minXd + x);
+//                            p[1] = disc.continuize(minYd + y);
+//                            p[2] = disc.continuize(minZd + z);
+//                            voxels.push_back(p);
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//    }
 }
+
+} // namespace sbpl

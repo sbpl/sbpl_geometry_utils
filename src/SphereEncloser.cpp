@@ -35,8 +35,12 @@
 namespace sbpl
 {
 
-void SphereEncloser::encloseBox(double xSize, double ySize, double zSize, double radius,
-                                std::vector<std::vector<double> >& spheres)
+void SphereEncloser::encloseBox(
+    double xSize,
+    double ySize,
+    double zSize,
+    double radius,
+    std::vector<std::vector<double> >& spheres)
 {
     spheres.clear();
     double rootTwo = sqrt(2.0);
@@ -70,28 +74,44 @@ void SphereEncloser::encloseBox(double xSize, double ySize, double zSize, double
     }
 }
 
-void SphereEncloser::encloseBox(double xSize, double ySize, double zSize, const geometry_msgs::Pose& pose,
-                                double radius, std::vector<std::vector<double> >& spheres)
+void SphereEncloser::encloseBox(
+    double xSize,
+    double ySize,
+    double zSize,
+    const geometry_msgs::Pose& pose,
+    double radius,
+    std::vector<std::vector<double> >& spheres)
 {
     // TODO: transform to be centered at 0,0,0 and axis-aligned; enclose; transform back
     return;
 }
 
-void SphereEncloser::encloseCylinder(double cylinderRadius, double length, double radius,
-                                     std::vector<std::vector<double> >& spheres)
+void SphereEncloser::encloseCylinder(
+    double cylinderRadius,
+    double length,
+    double radius,
+    std::vector<std::vector<double> >& spheres)
 {
     return; // TODO
 }
 
-void SphereEncloser::encloseCylinder(double cylinderRadius, double length, const geometry_msgs::Pose& pose,
-                                     double radius, std::vector<std::vector<double> >& spheres)
+void SphereEncloser::encloseCylinder(
+    double cylinderRadius,
+    double length,
+    const geometry_msgs::Pose& pose,
+    double radius,
+    std::vector<std::vector<double> >& spheres)
 {
     return; // TODO
 }
 
-void SphereEncloser::encloseMesh(const std::vector<geometry_msgs::Point>& vertices, const std::vector<int>& triangles,
-                                 double radius, std::vector<std::vector<double> >& spheres, bool fillMesh,
-                                 int maxSpheres)
+void SphereEncloser::encloseMesh(
+    const std::vector<geometry_msgs::Point>& vertices,
+    const std::vector<int>& triangles,
+    double radius,
+    std::vector<std::vector<double> >& spheres,
+    bool fill,
+    int maxSpheres)
 {
     // TODO: use the maxSpheres parameter; here's some commented out code from the old encloseMesh function
 //    if (maxSpheres > 0 && numVoxelsFilled > maxSpheres) {
@@ -117,22 +137,44 @@ void SphereEncloser::encloseMesh(const std::vector<geometry_msgs::Point>& vertic
 //                numVoxelsFilled, maxSpheres, newRadius, radius);
 //
 //        spheres.clear();
-//        encloseMesh(vertices, triangles, newRadius, spheres, fillMesh, maxSpheres);
+//        encloseMesh(vertices, triangles, newRadius, spheres, fill, maxSpheres);
 //
 //        ROS_INFO("Ended up with only %lu spheres.", spheres.size());
 //
 //        return;
 //    }
-    double voxelLength = sqrt(2.0) * radius;
-    Voxelizer::voxelizeMesh(vertices, triangles, voxelLength, spheres, fillMesh, maxSpheres);
-    for (int i = 0; i < (int)spheres.size(); i++) {
-        spheres[i].push_back(radius);
+    double res = sqrt(2.0) * radius;
+
+    std::vector<Eigen::Vector3d> eigen_vertices;
+    eigen_vertices.reserve(vertices.size());
+    for (const geometry_msgs::Point& vertex : vertices) {
+        eigen_vertices.push_back(Eigen::Vector3d(vertex.x, vertex.y, vertex.z));
+    }
+
+    std::vector<Eigen::Vector3d> sphere_points;
+    VoxelizeMesh(eigen_vertices, triangles, res, sphere_points, fill);
+
+    spheres.reserve(sphere_points.size());
+    for (const Eigen::Vector3d& sphere_point : sphere_points) {
+        const std::vector<double> sphere =
+        {
+            sphere_point.x(),
+            sphere_point.y(),
+            sphere_point.z(),
+            radius
+        };
+        spheres.push_back(sphere);
     }
 }
 
-void SphereEncloser::encloseMesh(const std::vector<geometry_msgs::Point>& vertices, const std::vector<int>& triangles,
-                                 const geometry_msgs::Pose& pose, double radius,
-                                 std::vector<std::vector<double> >& spheres, bool fillMesh, int maxSpheres)
+void SphereEncloser::encloseMesh(
+    const std::vector<geometry_msgs::Point>& vertices,
+    const std::vector<int>& triangles,
+    const geometry_msgs::Pose& pose,
+    double radius,
+    std::vector<std::vector<double> >& spheres,
+    bool fillMesh,
+    int maxSpheres)
 {
     return; // TODO
 }
