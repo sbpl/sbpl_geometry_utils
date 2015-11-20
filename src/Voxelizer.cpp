@@ -167,11 +167,13 @@ static double Distance(
     double a, double b, double c, double d,
     double x, double y, double z);
 
+/// \brief Compute the distance between point (x, y, z) and the capsule defined
+///     by (p1x, p1y, p1z), (p2x, p2y, p2z), and radius_sqrd
 static double Distance(
-    double p1x, double p1y, double p1z,
-    double p2x, double p2y, double p2z,
+    const Eigen::Vector3d& p,
+    const Eigen::Vector3d& q,
     double radius_sqrd,
-    double x, double y, double z);
+    const Eigen::Vector3d& x);
 
 static bool CompareX(const Eigen::Vector3d& u, const Eigen::Vector3d& v);
 static bool CompareY(const Eigen::Vector3d& u, const Eigen::Vector3d& v);
@@ -219,46 +221,51 @@ void VoxelizeTriangle(
     const Eigen::Vector3d& c,
     VoxelGridBase<Discretizer>& vg)
 {
-    Eigen::Vector3d p_1 = a;
-    Eigen::Vector3d p_2 = b;
-    Eigen::Vector3d p_3 = c;
+    Eigen::Vector3d p1 = a;
+    Eigen::Vector3d p2 = b;
+    Eigen::Vector3d p3 = c;
 
     // check for colinearity and counterclockwiseness
-    double det = ((p_2 - p_1).cross(p_3 - p_1).norm());
+    double det = ((p2 - p1).cross(p3 - p1).norm());
     if (det == 0) {
         return;
     }
 
-    // thickness parameters
-//    double t = 0.5 * sqrt(3.0);
-//    double t2 = 3.0 / 4.0;
-
-    double t = 0.5 * 1.0;
-    double t2 = 0.25;
-
-    Eigen::Vector3d mintri;
-    Eigen::Vector3d maxtri;
-    ComputeAxisAlignedBoundingBox({ a, b, c }, mintri, maxtri);
-
-    const WorldCoord minwc(mintri.x(), mintri.y(), mintri.z());
-    const WorldCoord maxwc(maxtri.x(), maxtri.y(), maxtri.z());
-    const GridCoord mingc = vg.worldToGrid(minwc);
-    const GridCoord maxgc = vg.worldToGrid(maxwc);
-
-    // make p_1, p_2, p_3 ccw
+    // ensure p1, p2, p3 ccw
     if (det < 0.0) {
-        std::swap(p_1, p_3);
+        std::swap(p1, p3);
     }
 
+    // thickness parameters
+
+    double rc = sqrt(3.0) * 0.5 * vg.res().x();
+//    double rc = sqrt(3.0) * 0.5 * vg.res().x();
+    double rc2 = rc * rc;
+
     // get the normal vector for the triangle
-    Eigen::Vector3d u = p_2 - p_1;
-    Eigen::Vector3d v = p_3 - p_2;
-    Eigen::Vector3d w = p_1 - p_3;
+    Eigen::Vector3d u = p2 - p1;
+    Eigen::Vector3d v = p3 - p2;
+    Eigen::Vector3d w = p1 - p3;
     Eigen::Vector3d n = u.cross(v);
     n.normalize();
 
+    double ca = 1.0;
+    double corners[] = {
+        Eigen::Vector3d(-0.5774, -0.5774, -0.5774).dot(n),
+        Eigen::Vector3d(-0.5774, -0.5774,  0.5774).dot(n),
+        Eigen::Vector3d(-0.5774,  0.5774, -0.5774).dot(n),
+        Eigen::Vector3d(-0.5774,  0.5774,  0.5774).dot(n),
+        Eigen::Vector3d( 0.5774, -0.5774, -0.5774).dot(n),
+        Eigen::Vector3d( 0.5774, -0.5774,  0.5774).dot(n),
+        Eigen::Vector3d( 0.5774,  0.5774, -0.5774).dot(n),
+        Eigen::Vector3d( 0.5774,  0.5774,  0.5774).dot(n)
+    };
+    ca = *std::max_element(corners, corners + sizeof(corners));
+
+    double t = rc * ca;
+
     // get the distance from the origin for the triangle plane
-    double d = -n.dot(p_1);
+    double d = -n.dot(p1);
 
     // normal to the edge p2 - p1 pointing inwards
     Eigen::Vector3d e1 = -u.cross(n);
@@ -273,9 +280,18 @@ void VoxelizeTriangle(
     e3.normalize();
 
     // distances of the edge-guard planes from the origin
-    double d1 = -e1.dot(p_1);
-    double d2 = -e2.dot(p_2);
-    double d3 = -e3.dot(p_3);
+    double d1 = -e1.dot(p1);
+    double d2 = -e2.dot(p2);
+    double d3 = -e3.dot(p3);
+
+    Eigen::Vector3d mintri;
+    Eigen::Vector3d maxtri;
+    ComputeAxisAlignedBoundingBox({ a, b, c }, mintri, maxtri);
+
+    const WorldCoord minwc(mintri.x(), mintri.y(), mintri.z());
+    const WorldCoord maxwc(maxtri.x(), maxtri.y(), maxtri.z());
+    const GridCoord mingc = vg.worldToGrid(minwc);
+    const GridCoord maxgc = vg.worldToGrid(maxwc);
 
     // consider all voxels that this triangle can voxelize
     for (int gx = mingc.x; gx <= maxgc.x; gx++) {
@@ -288,27 +304,29 @@ void VoxelizeTriangle(
 
                 const WorldCoord wc = vg.gridToWorld(gc);
 
+                // TODO: shortcut based off of distance to triangle plane?
+
                 // check if the voxel point is in the plane of the triangle and
                 // within the edges
                 const Eigen::Vector3d voxel_p(wc.x, wc.y, wc.z);
 
-                double dx1 = voxel_p(0) - p_1(0); double dy1 = voxel_p(1) - p_1(1); double dz1 = voxel_p(2) - p_1(2);
-                double dx2 = voxel_p(0) - p_2(0); double dy2 = voxel_p(1) - p_2(1); double dz2 = voxel_p(2) - p_2(2);
-                double dx3 = voxel_p(0) - p_3(0); double dy3 = voxel_p(1) - p_3(1); double dz3 = voxel_p(2) - p_3(2);
+                Eigen::Vector3d dx1 = voxel_p - p1;
+                Eigen::Vector3d dx2 = voxel_p - p2;
+                Eigen::Vector3d dx3 = voxel_p - p3;
 
-                if ((dx1 * dx1 + dy1 * dy1 + dz1 * dz1) <= t2 ||
-                    (dx2 * dx2 + dy2 * dy2 + dz2 * dz2) <= t2 ||
-                    (dx3 * dx3 + dy3 * dy3 + dz3 * dz3) <= t2)
+                if (dx1.squaredNorm() <= rc2 ||
+                    dx2.squaredNorm() <= rc2 ||
+                    dx3.squaredNorm() <= rc2)
                 {
-                    // check for a vertex filling in this voxel
-                    vg[gc] = true;
+                    // vertex fills this voxel
+                    vg[gc] = 1;
                 }
-                else if (Distance(p_1(0), p_1(1), p_1(2), p_2(0), p_2(1), p_2(2), t2, voxel_p(0), voxel_p(1), voxel_p(2)) != -1.0 ||
-                         Distance(p_2(0), p_2(1), p_2(2), p_3(0), p_3(1), p_3(2), t2, voxel_p(0), voxel_p(1), voxel_p(2)) != -1.0 ||
-                         Distance(p_3(0), p_3(1), p_3(2), p_1(0), p_1(1), p_1(2), t2, voxel_p(0), voxel_p(1), voxel_p(2)) != -1.0)
+                else if (Distance(p1, p3, rc2, voxel_p) != -1.0 ||
+                         Distance(p2, p3, rc2, voxel_p) != -1.0 ||
+                         Distance(p3, p1, rc2, voxel_p) != -1.0)
                 {
-                    // then check for an edge
-                    vg[gc] = true;
+                    // edge fills this voxel
+                    vg[gc] = 1;
                 }
                 else {
                     // then check for inside the triangle
@@ -325,7 +343,7 @@ void VoxelizeTriangle(
                             )
                         ))
                     {
-                        vg[gc] = true;
+                        vg[gc] = 1;
                     }
                 }
             }
@@ -1328,27 +1346,21 @@ double Distance(
 }
 
 double Distance(
-    double p1x, double p1y, double p1z,
-    double p2x, double p2y, double p2z,
+    const Eigen::Vector3d& p,
+    const Eigen::Vector3d& q,
     double radius_sqrd,
-    double x, double y, double z)
+    const Eigen::Vector3d& x)
 {
-    double dx = p2x - p1x;
-    double dy = p2y - p1y;
-    double dz = p2z - p1z;
-    double length_sqrd = dx * dx + dy * dy + dz * dz;
+    Eigen::Vector3d pq = q - p;
+    Eigen::Vector3d px = x - p;
 
-    double pdx = x - p1x;
-    double pdy = y - p1y;
-    double pdz = z - p1z;
+    double d = px.dot(pq);
 
-    double dot = pdx * dx + pdy * dy + pdz * dz;
-
-    if (dot < 0.0 || dot > length_sqrd) {
+    if (d < 0.0 || d > pq.squaredNorm()) {
         return -1.0;
     }
     else {
-        double dsq = pdx * pdx + pdy * pdy + pdz * pdz - dot * dot / length_sqrd;
+        double dsq = px.squaredNorm() - (d * d) / pq.squaredNorm();
         if (dsq > radius_sqrd) {
             return -1.0;
         }
