@@ -1,10 +1,10 @@
 //////////////////////////////////////////////////////////////////////////////
 // Copyright (c) 2014, Andrew Dornbush
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
-// 
+//
 //     * Redistributions of source code must retain the above copyright
 //       notice, this list of conditions and the following disclaimer.
 //     * Redistributions in binary form must reproduce the above copyright
@@ -13,7 +13,7 @@
 //     * Neither the name of the copyright holder nor the names of its
 //       contributors may be used to endorse or promote products derived from
 //       this software without specific prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 // AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -36,38 +36,54 @@ namespace sbpl
     namespace interp
     {
 
-bool InterpolatePath(const std::vector<double>& start, const std::vector<double>& end,
-                     const std::vector<double>& min_limits, const std::vector<double>& max_limits,
-                     const std::vector<double>& inc,
-                     std::vector<std::vector<double> >& path)
+bool InterpolatePath(
+    const std::vector<double>& start,
+    const std::vector<double>& end,
+    const std::vector<double>& min_limits,
+    const std::vector<double>& max_limits,
+    const std::vector<double>& inc,
+    std::vector<std::vector<double> >& path)
 {
     std::vector<bool> continuous_joints(start.size(), false);
     const double eps = 1e-6;
     return InterpolatePath(start, end, min_limits, max_limits, inc, continuous_joints, eps, path);
 }
 
-bool InterpolatePath(const std::vector<double>& start, const std::vector<double>& end,
-                     const std::vector<double>& min_limits, const std::vector<double>& max_limits,
-                     const std::vector<double>& inc, double eps,
-                     std::vector<std::vector<double> >& path)
+bool InterpolatePath(
+    const std::vector<double>& start,
+    const std::vector<double>& end,
+    const std::vector<double>& min_limits,
+    const std::vector<double>& max_limits,
+    const std::vector<double>& inc,
+    double eps,
+    std::vector<std::vector<double> >& path)
 {
     std::vector<bool> continuous_joints(start.size(), false);
     return InterpolatePath(start, end, min_limits, max_limits, inc, continuous_joints, eps, path);
 }
 
-bool InterpolatePath(const std::vector<double>& start, const std::vector<double>& end,
-                     const std::vector<double>& min_limits, const std::vector<double>& max_limits,
-                     const std::vector<double>& inc, const std::vector<bool>& continuous_joints,
-                     std::vector<std::vector<double> >& path)
+bool InterpolatePath(
+    const std::vector<double>& start,
+    const std::vector<double>& end,
+    const std::vector<double>& min_limits,
+    const std::vector<double>& max_limits,
+    const std::vector<double>& inc,
+    const std::vector<bool>& continuous_joints,
+    std::vector<std::vector<double> >& path)
 {
     const double eps = 1e-6;
     return InterpolatePath(start, end, min_limits, max_limits, inc, continuous_joints, eps, path);
 }
 
-bool InterpolatePath(const std::vector<double>& start, const std::vector<double>& end,
-                     const std::vector<double>& min_limits, const std::vector<double>& max_limits,
-                     const std::vector<double>& inc, const std::vector<bool>& continuous_joints,
-                     double eps, std::vector<std::vector<double> >& path)
+bool InterpolatePath(
+    const std::vector<double>& start,
+    const std::vector<double>& end,
+    const std::vector<double>& min_limits,
+    const std::vector<double>& max_limits,
+    const std::vector<double>& inc,
+    const std::vector<bool>& continuous_joints,
+    double eps,
+    std::vector<std::vector<double> >& path)
 {
     path.clear();
 
