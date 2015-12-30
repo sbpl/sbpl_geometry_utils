@@ -115,7 +115,7 @@ void VoxelizeSphere(
 
 /// \brief Voxelize a cylinder at the origin
 void VoxelizeCylinder(
-    double radius, 
+    double radius,
     double height,
     double res,
     std::vector<Eigen::Vector3d>& voxels,
@@ -123,7 +123,7 @@ void VoxelizeCylinder(
 
 /// \brief Voxelize a cylinder at a given pose
 void VoxelizeCylinder(
-    double radius, 
+    double radius,
     double height,
     const Eigen::Affine3d& pose,
     double res,
@@ -133,7 +133,7 @@ void VoxelizeCylinder(
 /// \brief Voxelize a cylinder at the origin using a specified origin for the
 ///     voxel grid
 void VoxelizeCylinder(
-    double radius, 
+    double radius,
     double height,
     double res,
     const Eigen::Vector3d& voxel_origin,
@@ -143,7 +143,45 @@ void VoxelizeCylinder(
 /// \brief Voxelize a cylinder at a given pose using a specified origin for the
 ///     voxel grid
 void VoxelizeCylinder(
-    double radius, 
+    double radius,
+    double height,
+    const Eigen::Affine3d& pose,
+    double res,
+    const Eigen::Vector3d& voxel_origin,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill = false);
+
+/// \brief Voxelize a cone at the origin
+void VoxelizeCone(
+    double radius,
+    double height,
+    double res,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill = false);
+
+/// \brief Voxelize a cone at a given pose
+void VoxelizeCone(
+    double radius,
+    double height,
+    const Eigen::Affine3d& pose,
+    double res,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill = false);
+
+/// \brief Voxelize a cone at the origin using a specified origin for the voxel
+///     grid
+void VoxelizeCone(
+    double radius,
+    double height,
+    double res,
+    const Eigen::Vector3d& voxel_origin,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill = false);
+
+/// \brief Voxelize a cone at a given pose using a specified origin for the
+///     voxel grid
+void VoxelizeCone(
+    double radius,
     double height,
     const Eigen::Affine3d& pose,
     double res,

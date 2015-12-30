@@ -115,6 +115,14 @@ static void CreateIndexedCylinderMesh(
     std::vector<Eigen::Vector3d>& vertices,
     std::vector<int>& indices);
 
+/// \brief Create a mesh representation of an upright (z-aligned) cone
+/// The cone is located at the origin
+static void CreateIndexedConeMesh(
+    double radius,
+    double height,
+    std::vector<Eigen::Vector3d>& vertices,
+    std::vector<int>& indices);
+
 /// \brief Create a mesh representation of a grid
 static void CreateIndexedGridMesh(
     double res,
@@ -661,6 +669,31 @@ void CreateIndexedCylinderMesh(
         indices.push_back((i + 1) % numPtsOnRim);
         indices.push_back(((i + 1) % numPtsOnRim) + numPtsOnRim);
         indices.push_back(i + numPtsOnRim);
+    }
+}
+
+void CreateIndexedConeMesh(
+    double radius,
+    double height,
+    std::vector<Eigen::Vector3d>& vertices,
+    std::vector<int>& indices)
+{
+    const int num_rim_points = 16;
+    const double bottom_z = -0.5 * height;
+    const double top_z = 0.5 * height;
+
+    vertices.push_back(Eigen::Vector3d(0.0, 0.0, top_z));
+    for (int i = 0; i < num_rim_points; ++i) {
+        double theta = 2.0 * M_PI * (double)i / (double)num_rim_points;
+        const double x = radius * cos(theta);
+        const double y = radius * sin(theta);
+        vertices.push_back(Eigen::Vector3d(x, y, bottom_z));
+    }
+
+    for (int i = 0; i < num_rim_points; ++i) {
+        indices.push_back(i);
+        indices.push_back((i + 1) % num_rim_points);
+        indices.push_back(0);
     }
 }
 
@@ -1567,6 +1600,65 @@ void VoxelizeCylinder(
     std::vector<Eigen::Vector3d> vertices;
     std::vector<int> triangles;
     CreateIndexedCylinderMesh(radius, height, vertices, triangles);
+    TransformVertices(pose, vertices);
+    VoxelizeMesh(vertices, triangles, res, voxel_origin, voxels, fill);
+}
+
+void VoxelizeCone(
+    double radius,
+    double height,
+    double res,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill)
+{
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> triangles;
+    CreateIndexedConeMesh(radius, height, vertices, triangles);
+    VoxelizeMesh(vertices, triangles, res, voxels, fill);
+}
+
+void VoxelizeCone(
+    double radius,
+    double height,
+    const Eigen::Affine3d& pose,
+    double res,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill)
+{
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> triangles;
+    CreateIndexedConeMesh(radius, height, vertices, triangles);
+    TransformVertices(pose, vertices);
+    VoxelizeMesh(vertices, triangles, res, voxels, fill);
+}
+
+void VoxelizeCone(
+    double radius,
+    double height,
+    double res,
+    const Eigen::Vector3d& voxel_origin,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill)
+{
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> triangles;
+    CreateIndexedConeMesh(radius, height, vertices, triangles);
+    VoxelizeMesh(vertices, triangles, res, voxel_origin, voxels, fill);
+}
+
+void VoxelizeCone(
+    double radius,
+    double height,
+    const Eigen::Affine3d& pose,
+    double res,
+    const Eigen::Vector3d& voxel_origin,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill)
+{
+    // TODO: implement
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> triangles;
+    CreateIndexedConeMesh(radius, height, vertices, triangles);
     TransformVertices(pose, vertices);
     VoxelizeMesh(vertices, triangles, res, voxel_origin, voxels, fill);
 }
