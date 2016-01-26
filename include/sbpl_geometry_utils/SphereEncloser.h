@@ -1,10 +1,10 @@
 //////////////////////////////////////////////////////////////////////////////
 // Copyright (c) 2014, Andrew Dornbush
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
-// 
+//
 //     * Redistributions of source code must retain the above copyright
 //       notice, this list of conditions and the following disclaimer.
 //     * Redistributions in binary form must reproduce the above copyright
@@ -13,7 +13,7 @@
 //     * Neither the name of the copyright holder nor the names of its
 //       contributors may be used to endorse or promote products derived from
 //       this software without specific prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 // AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -38,6 +38,22 @@
 
 namespace sbpl
 {
+
+/// \brief Compute a set of spheres to completely cover a cylinder.
+///
+/// The cylinder is assumed to be centered at the origin, with the caps
+/// perpendicular to the z-axis. The spheres must overlap one another to cover
+/// the entire object but may not cover any volume outside of the cylinder that
+/// is more than \p overestimation away from the surface.
+///
+/// \param radius The radius of the cylinder
+/// \param height The height of the cylinder
+/// \param spheres The output set of spheres that bound the cylinder
+bool ComputeCylinderBoundingSpheres(
+    double radius,
+    double height,
+    double overestimation,
+    std::vector<Sphere>& spheres);
 
 class SphereEncloser
 {

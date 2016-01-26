@@ -1,10 +1,10 @@
 //////////////////////////////////////////////////////////////////////////////
 // Copyright (c) 2014, Andrew Dornbush
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
-// 
+//
 //     * Redistributions of source code must retain the above copyright
 //       notice, this list of conditions and the following disclaimer.
 //     * Redistributions in binary form must reproduce the above copyright
@@ -13,7 +13,7 @@
 //     * Neither the name of the copyright holder nor the names of its
 //       contributors may be used to endorse or promote products derived from
 //       this software without specific prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 // AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -27,13 +27,79 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //////////////////////////////////////////////////////////////////////////////
 
+#include <math.h>
+
 #include <Eigen/Core>
+
 #include <sbpl_geometry_utils/SphereEncloser.h>
 #include <sbpl_geometry_utils/Triangle.h>
 #include <sbpl_geometry_utils/Voxelizer.h>
 
 namespace sbpl
 {
+
+bool ComputeCylinderBoundingSpheres(
+    double cylinder_radius,
+    double cylinder_height,
+    double overestimation,
+    std::vector<Sphere>& spheres)
+{
+    if (overestimation <= 0.0) {
+        return false;
+    }
+
+    // start by trying to cover whole width of the cylinder with a single sphere
+    // that overestimates by the allowable overestimation. this sphere should be
+    // placed tightly on one end of the cylinder, so that the edge of the
+    // cylinder cap intersects with the sphere. this will be allowed (1) if the
+    // sphere does not extend past the cap so much as to extend beyond the
+    // allowable overestimation (this condition is somehow derived from the
+    // ratio between the cylinder's radius and the maximum overestimation) and
+    // (2) if the sphere does not extend past the other cap beyond the allowable
+    // overestimation
+
+    // if the above step fails, subdivide the cylinder along its x and y axes,
+    // and make the same attempt as before. this step will eventually succeed as
+    // the radius of the sphere to the overestimation will decrease and
+    // eventually fit the cylinder tightly enough
+
+    int num_subdivs = -1;
+    double subdiv_radius;
+    double sphere_radius;
+    double standoff;
+    do {
+        ++num_subdivs;
+        subdiv_radius = cylinder_radius / pow(2.0, num_subdivs);
+        sphere_radius = subdiv_radius + overestimation;
+        const double theta = asin(subdiv_radius / sphere_radius);
+        standoff = sphere_radius * cos(theta);
+    }
+    while (standoff > 0.5 * cylinder_height || sphere_radius - standoff > overestimation);
+
+    const double max_span = 2 * standoff;
+    const int num_spheres = (int)ceil(cylinder_height / max_span) + 1;
+    double adjust_span = (cylinder_height - 2 * standoff) / (num_spheres - 1);
+    double subdiv_delta = 2 * cylinder_radius / pow(2.0, num_subdivs);
+
+    for (int ix = 0; ix < (1 << num_subdivs); ++ix) {
+        for (int iy = 0; iy < (1 << num_subdivs); ++iy) {
+            for (int iz = 0; iz < num_spheres; ++iz) {
+                double x = -cylinder_radius + 0.5 * subdiv_delta + ix * subdiv_delta;
+                double y = -cylinder_radius + 0.5 * subdiv_delta + iy * subdiv_delta;
+                double z = -0.5 * cylinder_height + standoff + iz * adjust_span;
+                double r = sphere_radius;
+                Sphere s;
+                s.center.x = x;
+                s.center.y = y;
+                s.center.z = z;
+                s.radius = r;
+                spheres.push_back(s);
+            }
+        }
+    }
+
+    return true;
+}
 
 void SphereEncloser::encloseBox(
     double xSize,
