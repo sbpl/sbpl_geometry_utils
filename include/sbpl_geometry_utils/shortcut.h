@@ -1,10 +1,10 @@
 //////////////////////////////////////////////////////////////////////////////
 // Copyright (c) 2014, Andrew Dornbush
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
-// 
+//
 //     * Redistributions of source code must retain the above copyright
 //       notice, this list of conditions and the following disclaimer.
 //     * Redistributions in binary form must reproduce the above copyright
@@ -13,7 +13,7 @@
 //     * Neither the name of the copyright holder nor the names of its
 //       contributors may be used to endorse or promote products derived from
 //       this software without specific prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 // AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -33,11 +33,8 @@
 #include <functional>
 #include <vector>
 
-namespace sbpl
-{
-
-namespace shortcut
-{
+namespace sbpl {
+namespace shortcut {
 
 /// @brief Convenience class to specify the requirements for a path generator passed to ShortcutPath
 template <typename PointType, typename CostType, typename PathContainerType = std::vector<PointType>>
@@ -62,33 +59,52 @@ struct PathGenerator
 /// @tparam CostCompare Comparison function to compare types of CostsContainer::value_type
 /// @param window Unimplemented
 /// @param granularity The number of points down the path to move before attempting another shortcut
-template <typename PathContainer,
-          typename CostsContainer,
-          typename PathGeneratorsContainer,
-          typename ShortcutPathContainer,
-          typename CostCompare = std::less_equal<typename CostsContainer::value_type>>
-bool ShortcutPath(const PathContainer& orig_path,
-                  const CostsContainer& orig_path_costs,
-                  const PathGeneratorsContainer& path_generators,
-                  ShortcutPathContainer& shortcut_path,
-                  unsigned window = 1,
-                  unsigned granularity = 1,
-                  const CostCompare& leq = CostCompare());
+template <
+    typename PathContainer,
+    typename CostsContainer,
+    typename PathGeneratorsContainer,
+    typename ShortcutPathContainer,
+    typename CostCompare = std::less_equal<typename CostsContainer::value_type>>
+bool ShortcutPath(
+    const PathContainer& orig_path,
+    const CostsContainer& orig_path_costs,
+    const PathGeneratorsContainer& path_generators,
+    ShortcutPathContainer& shortcut_path,
+    unsigned window = 1,
+    unsigned granularity = 1,
+    const CostCompare& leq = CostCompare());
 
-template <typename PathContainer,
-          typename CostsContainer,
-          typename PathGeneratorsContainer,
-          typename ShortcutPathContainer,
-          typename CostCompare = std::less_equal<typename CostsContainer::value_type>>
-bool DivideAndConquerShortcutPath(const PathContainer& orig_path,
-                                  const CostsContainer& orig_path_costs,
-                                  const PathGeneratorsContainer& path_generators,
-                                  ShortcutPathContainer& shortcut_path,
-                                  const CostCompare& leq = CostCompare());
+template <
+    typename InputPathIt,
+    typename InputCostIt,
+    typename GeneratorIt,
+    typename OutputPathIt,
+    typename CostCompare = std::less_equal<
+            typename std::remove_reference<decltype(*InputCostIt())>::type>>
+bool ShortcutPath(
+    InputPathIt pfirst, InputPathIt plast,
+    InputCostIt cfirst, InputCostIt clast,
+    GeneratorIt gfirst, GeneratorIt glast,
+    OutputPathIt ofirst,
+    size_t window = 1,
+    size_t granularity = 1,
+    const CostCompare& leq = CostCompare());
+
+template <
+    typename PathContainer,
+    typename CostsContainer,
+    typename PathGeneratorsContainer,
+    typename ShortcutPathContainer,
+    typename CostCompare = std::less_equal<typename CostsContainer::value_type>>
+bool DivideAndConquerShortcutPath(
+    const PathContainer& orig_path,
+    const CostsContainer& orig_path_costs,
+    const PathGeneratorsContainer& path_generators,
+    ShortcutPathContainer& shortcut_path,
+    const CostCompare& leq = CostCompare());
 
 
 } // namespace shortcut
-
 } // namespace sbpl
 
 #include <sbpl_geometry_utils/shortcut-inl.h>
