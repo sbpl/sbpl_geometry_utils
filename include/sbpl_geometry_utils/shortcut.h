@@ -36,8 +36,11 @@
 namespace sbpl {
 namespace shortcut {
 
-/// @brief Convenience class to specify the requirements for a path generator passed to ShortcutPath
-template <typename PointType, typename CostType, typename PathContainerType = std::vector<PointType>>
+/// \brief Convenience class for specifying path generator requirements
+template <
+    typename PointType,
+    typename CostType,
+    typename PathContainerType = std::vector<PointType>>
 struct PathGenerator
 {
     typedef PointType Point;
@@ -46,19 +49,40 @@ struct PathGenerator
 
     virtual ~PathGenerator() { }
 
-    virtual bool generate_path(const PointType& start,
-                               const PointType& end,
-                               PathContainerType& path_out,
-                               CostType& costs_out) const = 0;
+    virtual bool generate_path(
+        const PointType& start,
+        const PointType& end,
+        PathContainerType& path_out,
+        CostType& costs_out) const = 0;
 };
 
-/// @tparam PathContainer An stl-style container of path points where PathContainer::value_type is the point type
-/// @tparam CostsContainer An stl-style container of costs where CostsContainer::value_type is the cost type
-/// @tparam PathGeneratorsContainer An stl-style container of path generators where PathGeneratorsContainer::value_type is the path generator type that implements the PathGenerator interface
-/// @tparam ShortcutPathContainer An stl-style container where ShortcutPathContainer::value_type should be the same as for PathContainer
-/// @tparam CostCompare Comparison function to compare types of CostsContainer::value_type
-/// @param window Unimplemented
-/// @param granularity The number of points down the path to move before attempting another shortcut
+/// \brief Apply iterative path shortcutting to an container of path elements.
+///
+/// The routine works by iteratively moving further and further down the path,
+/// attempting to replace the original path with shortcut paths provided by path
+/// generators, until an invalid shortcut path is produced or the end of the
+/// path is reached.
+///
+/// \tparam PathContainer An stl-style sequence of path points
+///
+/// \tparam CostsContainer An stl-style sequence of costs
+///
+/// \tparam PathGeneratorsContainer An stl-style sequence of path generators.
+///     Each element of the sequence must implement the PathGenerator interface
+///
+/// \tparam ShortcutPathContainer An stl-style sequence container to store the
+///     resulting path. This should contain elements of the same type as
+///     PathContainer
+///
+/// \tparam CostCompare Comparison function to compare costs
+///
+/// \param window Unimplemented
+///
+/// \param granularity The number of points down the path to move before
+///     attempting another shortcut
+///
+/// \return true if inputs are valid, i.e., either the input path is empty or
+///     there are N points with N - 1 costs; false otherwise
 template <
     typename PathContainer,
     typename CostsContainer,
@@ -66,21 +90,48 @@ template <
     typename ShortcutPathContainer,
     typename CostCompare = std::less_equal<typename CostsContainer::value_type>>
 bool ShortcutPath(
-    const PathContainer& orig_path,
-    const CostsContainer& orig_path_costs,
-    const PathGeneratorsContainer& path_generators,
-    ShortcutPathContainer& shortcut_path,
-    unsigned window = 1,
-    unsigned granularity = 1,
-    const CostCompare& leq = CostCompare());
+    const PathContainer&            points,
+    const CostsContainer&           costs,
+    const PathGeneratorsContainer&  generators,
+    ShortcutPathContainer&          shortcut_points,
+    size_t                          window = 1,
+    size_t                          granularity = 1,
+    const CostCompare&              leq = CostCompare());
 
+/// \brief Apply iterative path shortcutting to a range of path elements.
+///
+/// The routine works by iteratively moving further and further down the path,
+/// attempting to replace the original path with shortcut paths provided by path
+/// generators, until an invalid shortcut path is produced or the end of the
+/// path is reached.
+///
+/// \param pfirst Input iterator pointing to the beginning of the range of points
+///
+/// \param plast  Input iterator pointing to the end of the range of points
+///
+/// \param cfirst Input iterator pointing to the beginning of the range of costs
+///
+/// \param clast  Input iterator pointing to the end of the range of costs
+///
+/// \param ofirst Output iterator to store the resulting path
+///
+/// \param window Unimplemented
+///
+/// \param granularity The number of points to advance in the path before
+///     attempting a shortcut
+///
+/// \param leq Comparison object for comparing costs
+///
+/// \return true if inputs are valid, i.e., either the input path range has
+///     zero length or the input path range has length N and the input cost range
+///     has length N - 1.
 template <
     typename InputPathIt,
     typename InputCostIt,
     typename GeneratorIt,
     typename OutputPathIt,
     typename CostCompare = std::less_equal<
-          typename std::iterator_traits<InputCostIt>::value_type>>
+            typename std::iterator_traits<InputCostIt>::value_type>>
 bool ShortcutPath(
     InputPathIt pfirst, InputPathIt plast,
     InputCostIt cfirst, InputCostIt clast,
@@ -90,6 +141,18 @@ bool ShortcutPath(
     size_t granularity = 1,
     const CostCompare& leq = CostCompare());
 
+/// \brief Apply recursive path shortcutting to a container of path elements.
+///
+/// The routine works by recursively attempting to replace the original path
+/// with shortcut paths provided by path generators, subdividing and attempting
+/// to shortcut smaller segments when an invalid shortcut path is produced.
+///
+/// \param points The original sequence of points
+/// \param costs The original sequence of costs of transitions between points
+/// \param generators The sequence of path generators
+/// \param shortcut_points The resulting shortcut path
+/// \param leq A comparison object used to compare costs of original and
+///     shortcut paths
 template <
     typename PathContainer,
     typename CostsContainer,
@@ -97,12 +160,18 @@ template <
     typename ShortcutPathContainer,
     typename CostCompare = std::less_equal<typename CostsContainer::value_type>>
 bool DivideAndConquerShortcutPath(
-    const PathContainer& orig_path,
-    const CostsContainer& orig_path_costs,
-    const PathGeneratorsContainer& path_generators,
-    ShortcutPathContainer& shortcut_path,
-    const CostCompare& leq = CostCompare());
+    const PathContainer&            points,
+    const CostsContainer&           costs,
+    const PathGeneratorsContainer&  generators,
+    ShortcutPathContainer&          shortcut_points,
+    const CostCompare&              leq = CostCompare());
 
+/// \brief Apply recursive path shortcutting to a range of path elements.
+///
+/// The routine works by recursively attempting to replace the original path
+/// with shortcut paths provided by path generators, subdividing and attempting
+/// to shortcut smaller segments when an invalid shortcut path is produced.
+///
 template <
     typename InputPathIt,
     typename InputCostIt,
