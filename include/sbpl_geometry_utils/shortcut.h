@@ -80,7 +80,7 @@ template <
     typename GeneratorIt,
     typename OutputPathIt,
     typename CostCompare = std::less_equal<
-            typename std::remove_reference<decltype(*InputCostIt())>::type>>
+          typename std::iterator_traits<InputCostIt>::value_type>>
 bool ShortcutPath(
     InputPathIt pfirst, InputPathIt plast,
     InputCostIt cfirst, InputCostIt clast,
@@ -103,6 +103,19 @@ bool DivideAndConquerShortcutPath(
     ShortcutPathContainer& shortcut_path,
     const CostCompare& leq = CostCompare());
 
+template <
+    typename InputPathIt,
+    typename InputCostIt,
+    typename GeneratorIt,
+    typename OutputPathIt,
+    typename CostCompare = std::less_equal<
+            typename std::iterator_traits<InputCostIt>::value_type>>
+bool DivideAndConquerShortcutPath(
+    InputPathIt pfirst, InputPathIt plast,
+    InputCostIt cfirst, InputCostIt clast,
+    GeneratorIt gfirst, GeneratorIt glast,
+    OutputPathIt ofirst,
+    const CostCompare& leq = CostCompare());
 
 } // namespace shortcut
 } // namespace sbpl

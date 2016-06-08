@@ -209,25 +209,28 @@ bool ShortcutPath(
     OutputPathIt ofirst,
     size_t window,
     size_t granularity,
-    const CostCompare& leq = CostCompare())
+    const CostCompare& leq)
 {
-    typedef typename std::remove_const<
-            typename std::remove_reference<decltype(*pfirst)>::type>::type PointType;
-    typedef typename std::remove_const<
-            typename std::remove_reference<decltype(*cfirst)>::type>::type CostType;
-    typedef typename std::remove_const<
-            typename std::remove_reference<decltype(*gfirst)>::type>::type PathGeneratorType;
+    typedef typename std::iterator_traits<InputPathIt>::value_type PointType;
+    typedef typename std::iterator_traits<InputCostIt>::value_type CostType;
 
     const size_t psize = (size_t)std::distance(pfirst, plast);
     const size_t csize = (size_t)std::distance(cfirst, clast);
 
-    // assert one cost per point transition
+    if (psize == 0) {
+        return true;
+    }
+
+    // in all other cases, assert one cost per point transition
     if (psize != csize + 1) {
         return false;
     }
 
     // nothing to do with a trivial path
     if (psize < 2) {
+        for (auto pit = pfirst; pit != plast; ++pit) {
+            *ofirst++ = *pit;
+        }
         return true;
     }
 
@@ -286,7 +289,7 @@ bool ShortcutPath(
         }
     }
 
-    *ofirst = *pfirst;
+    *ofirst++ = *pfirst;
 
     while (curr_end != plast) {
         cost_improved = false;
@@ -474,10 +477,128 @@ bool DivideAndConquerShortcutPath(
 
     typename PathContainer::const_iterator start = orig_path.cbegin();
     typename PathContainer::const_iterator end = --orig_path.cend();
-    typename std::vector<CostType>::const_iterator costs_start = accum_point_costs.cbegin();
-    typename std::vector<CostType>::const_iterator costs_end = accum_point_costs.cend();
+    auto costs_start = accum_point_costs.cbegin();
+    auto costs_end = accum_point_costs.cend();
 
     return DivideAndConquerShortcutPath(start, end, costs_start, costs_end, path_generators, shortcut_path, leq);
+}
+
+template <
+    typename InputPathIt,
+    typename InputCostIt,
+    typename GeneratorIt,
+    typename OutputPathIt,
+    typename CostCompare>
+void DivideAndConquerShortcutPathRec(
+    InputPathIt pfirst, InputPathIt plast,
+    InputCostIt cfirst, InputCostIt clast,
+    GeneratorIt gfirst, GeneratorIt glast,
+    OutputPathIt ofirst,
+    const CostCompare& leq)
+{
+    typedef typename std::iterator_traits<InputPathIt>::value_type PointType;
+    typedef typename std::iterator_traits<InputCostIt>::value_type CostType;
+
+    if (std::distance(pfirst, plast) == 1) {
+        // need to push back the final endpoint
+        *ofirst++ = *plast;
+        return;
+    }
+    else {
+        bool cost_improved = false;
+        CostType best_cost = *clast - *cfirst;
+        std::vector<PointType> best_path;
+
+        // ask the path generators for a cheaper path between these two points
+        std::vector<PointType> path;
+        for (auto git = gfirst; git != glast; ++git) {
+            path.clear();
+            CostType cost;
+            if ((*git)(*pfirst, *plast, std::back_inserter(path), cost) &&
+                leq(cost, best_cost))
+            {
+                cost_improved = true;
+                best_cost = cost;
+                best_path.swap(path);
+            }
+        }
+
+        if (cost_improved) {
+            // store the result in the accumulated path
+            auto bpit = best_path.begin(); ++bpit;
+            for (; bpit != best_path.end(); ++bpit) {
+                *ofirst++ = *bpit;
+            }
+            return;
+        }
+        else {
+            // divide this segment in two and attempt to shortcut both halves
+            auto segment_size = std::distance(pfirst, plast);
+            auto mid = pfirst;
+            auto cmid = cfirst;
+            std::advance(mid, (segment_size >> 1));
+            std::advance(cmid, (segment_size >> 1));
+
+            DivideAndConquerShortcutPathRec(
+                    pfirst, mid, cfirst, cmid, gfirst, glast, ofirst, leq);
+            DivideAndConquerShortcutPathRec(
+                    mid, plast, cmid, clast, gfirst, glast, ofirst, leq);
+            return;
+        }
+    }
+}
+
+template <
+    typename InputPathIt,
+    typename InputCostIt,
+    typename GeneratorIt,
+    typename OutputPathIt,
+    typename CostCompare>
+bool DivideAndConquerShortcutPath(
+    InputPathIt pfirst, InputPathIt plast,
+    InputCostIt cfirst, InputCostIt clast,
+    GeneratorIt gfirst, GeneratorIt glast,
+    OutputPathIt ofirst,
+    const CostCompare& leq)
+{
+    typedef typename std::iterator_traits<InputPathIt>::value_type PointType;
+    typedef typename std::iterator_traits<InputCostIt>::value_type CostType;
+
+    const size_t psize = std::distance(pfirst, plast);
+    const size_t csize = std::distance(cfirst, clast);
+
+    if (psize == 0) {
+        return true;
+    }
+
+    if (psize != csize + 1) {
+        return false;
+    }
+
+    if (psize < 2) {
+        for (auto pit = pfirst; pit != plast; ++pit) {
+            *ofirst++ = *pit;
+        }
+        return true;
+    }
+
+    // compute accumulated costs at each point
+    std::vector<CostType> accum(psize);
+    accum[0] = (CostType)0;
+    auto cit = cfirst;
+    for (size_t i = 1; i < accum.size(); ++i) {
+        accum[i] = accum[i - 1] + *cit++;
+    }
+
+    auto first = pfirst;
+    auto last = plast; --last;
+    auto acfirst = accum.cbegin();
+    auto aclast = accum.cend(); --aclast;
+
+    *ofirst++ = *pfirst;
+    DivideAndConquerShortcutPathRec(
+            first, last, acfirst, aclast, gfirst, glast, ofirst, leq);
+    return true;
 }
 
 } // namespace shortcut
