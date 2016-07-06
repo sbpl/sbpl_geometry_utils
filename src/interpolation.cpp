@@ -92,8 +92,11 @@ bool InterpolatePath(
     std::vector<double> end_norm = end;
 
     // check that all inputs have the same size
-    unsigned dim = start_norm.size();
-    if (dim != end_norm.size() || dim != inc.size() || dim != min_limits.size() || dim != max_limits.size() ||
+    const unsigned dim = start_norm.size();
+    if (dim != end_norm.size() ||
+        dim != inc.size() ||
+        dim != min_limits.size() ||
+        dim != max_limits.size() ||
         dim != continuous_joints.size())
     {
         return false;

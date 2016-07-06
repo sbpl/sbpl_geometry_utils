@@ -44,7 +44,6 @@ add_library(
     src/SphereEncloser.cpp
     src/Triangle.cpp
     src/Voxelizer.cpp
-    src/utils.cpp
     src/interpolation.cpp
     src/raster.cpp)
 target_link_libraries(sbpl_geometry_utils ${catkin_LIBRARIES})
