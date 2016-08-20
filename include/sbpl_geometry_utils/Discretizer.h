@@ -1,10 +1,10 @@
 //////////////////////////////////////////////////////////////////////////////
 // Copyright (c) 2015, Andrew Dornbush
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
-// 
+//
 //     * Redistributions of source code must retain the above copyright
 //       notice, this list of conditions and the following disclaimer.
 //     * Redistributions in binary form must reproduce the above copyright
@@ -13,7 +13,7 @@
 //     * Neither the name of the copyright holder nor the names of its
 //       contributors may be used to endorse or promote products derived from
 //       this software without specific prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 // AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -80,8 +80,14 @@ private:
     PivotDiscretizer m_min_disc;
 };
 
-/// \brief Discretizes a continuous space into uniform cells such that one cell
-///     is centered on half res (so a cell boundary exists at 0)
+/// \brief Transforms real values into a uniform discrete cells with one cell
+///     centered on half res
+///
+/// Real values are transformed according to the following scheme:
+///
+///    (-2 * res) (-1 * res) 0 (1 * res) (2 * res)
+/// ...-----+----------+-----+-----+---------+----...
+/// ...  -3 ](   -2    ](-1 )[ 0  )[   1    )[ 2  ...
 class HalfResDiscretizer
 {
 public:
