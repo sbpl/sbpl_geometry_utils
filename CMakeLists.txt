@@ -45,7 +45,8 @@ add_library(
     src/Triangle.cpp
     src/Voxelizer.cpp
     src/interpolation.cpp
-    src/raster.cpp)
+    src/raster.cpp
+    src/mesh_utils.cpp)
 target_link_libraries(sbpl_geometry_utils ${catkin_LIBRARIES})
 
 install(TARGETS sbpl_geometry_utils

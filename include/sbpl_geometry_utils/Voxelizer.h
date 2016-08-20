@@ -1,10 +1,10 @@
 //////////////////////////////////////////////////////////////////////////////
 // Copyright (c) 2014, Andrew Dornbush
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are met:
-// 
+//
 //     * Redistributions of source code must retain the above copyright
 //       notice, this list of conditions and the following disclaimer.
 //     * Redistributions in binary form must reproduce the above copyright
@@ -13,7 +13,7 @@
 //     * Neither the name of the copyright holder nor the names of its
 //       contributors may be used to endorse or promote products derived from
 //       this software without specific prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 // AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -38,6 +38,8 @@
 
 // project includes
 #include <sbpl_geometry_utils/Triangle.h>
+#include <sbpl_geometry_utils/VoxelGrid.h>
+#include <sbpl_geometry_utils/utils.h>
 
 namespace sbpl {
 
@@ -227,18 +229,34 @@ void VoxelizeMesh(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
-/**
- * @brief Encloses a list of spheres with a set of voxels of a given size
- *
- * Encloses a list of spheres with a set of voxels of a given size. The generated voxels appear in the frame the
- * spheres are described in.
- *
- * @param[in] spheres The list of spheres to voxelize
- * @param[in] res The resolution of the voxel cells
- * @param[in] removeDuplicates Whether to remove duplicate voxels
- * @param[out] voxels The vector in which to store the voxels
- * @param[out] volume The combined volume of all the spheres
- */
+/// \brief Voxelize a plane within a given bounding box
+void VoxelizePlane(
+    double a, double b, double c, double d,
+    const Eigen::Vector3d& min,
+    const Eigen::Vector3d& max,
+    double res,
+    std::vector<Eigen::Vector3d>& voxels);
+
+/// \brief Voxelize a plane within a given bounding box using a specified voxel
+///     grid origin
+void VoxelizePlane(
+    double a, double b, double c, double d,
+    const Eigen::Vector3d& min,
+    const Eigen::Vector3d& max,
+    double res,
+    const Eigen::Vector3d& voxel_origin,
+    std::vector<Eigen::Vector3d>& voxels);
+
+/// \brief Encloses a list of spheres with a set of voxels of a given size
+///
+/// Encloses a list of spheres with a set of voxels of a given size. The generated voxels appear in the frame the
+/// spheres are described in.
+///
+/// \param[in] spheres The list of spheres to voxelize
+/// \param[in] res The resolution of the voxel cells
+/// \param[in] removeDuplicates Whether to remove duplicate voxels
+/// \param[out] voxels The vector in which to store the voxels
+/// \param[out] volume The combined volume of all the spheres
 void VoxelizeSphereList(
     const std::vector<double>& radii,
     const std::vector<Eigen::Affine3d>& poses,
@@ -248,18 +266,17 @@ void VoxelizeSphereList(
     bool unique,
     bool fill = false);
 
-/**
- * @brief a Quick And Dirty (QAD) enclosure of a list of spheres with a set of voxels of a given size
- *
- * Encloses a list of spheres with a set of voxels of a given size. The generated voxels appear in the frame the
- * spheres are described in.
- *
- * @param[in] spheres The list of spheres to voxelize
- * @param[in] res The resolution of the voxel cells
- * @param[in] removeDuplicates Whether to remove duplicate voxels
- * @param[out] voxels The vector in which to store the voxels
- * @param[out] volume The combined volume of all the spheres
- */
+/// \brief a Quick And Dirty (QAD) enclosure of a list of spheres with a set of
+///     voxels of a given size
+///
+/// Encloses a list of spheres with a set of voxels of a given size. The
+/// generated voxels appear in the frame the spheres are described in.
+///
+/// \param[in] spheres The list of spheres to voxelize
+/// \param[in] res The resolution of the voxel cells
+/// \param[in] removeDuplicates Whether to remove duplicate voxels
+/// \param[out] voxels The vector in which to store the voxels
+/// \param[out] volume The combined volume of all the spheres
 void VoxelizeSphereListQAD(
     const std::vector<double>& radii,
     const std::vector<Eigen::Affine3d>& poses,
@@ -269,6 +286,26 @@ void VoxelizeSphereListQAD(
     bool unique,
     bool fill = false);
 
+bool ComputeAxisAlignedBoundingBox(
+    const std::vector<Eigen::Vector3d>& vertices,
+    Eigen::Vector3d& min,
+    Eigen::Vector3d& max);
+
+double Distance(
+    const Eigen::Vector3d& p,
+    const Eigen::Vector3d& q,
+    double radius_sqrd,
+    const Eigen::Vector3d& x);
+
+template <typename Discretizer>
+void VoxelizeTriangle(
+    const Eigen::Vector3d& a,
+    const Eigen::Vector3d& b,
+    const Eigen::Vector3d& c,
+    VoxelGrid<Discretizer>& vg);
+
 } // namespace sbpl
+
+#include "detail/voxelize.h"
 
 #endif

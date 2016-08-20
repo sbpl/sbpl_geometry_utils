@@ -1,5 +1,5 @@
 //////////////////////////////////////////////////////////////////////////////
-// Copyright (c) 2014, Andrew Dornbush
+// Copyright (c) 2016, Andrew Dornbush
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -27,38 +27,65 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //////////////////////////////////////////////////////////////////////////////
 
-#ifndef SBPL_GEOMETRY_UTILS_SPHERE_ENCLOSER_H
-#define SBPL_GEOMETRY_UTILS_SPHERE_ENCLOSER_H
+#ifndef sbpl_geometry_mesh_utils_h
+#define sbpl_geometry_mesh_utils_h
 
 #include <vector>
+
 #include <Eigen/Dense>
-#include <geometry_msgs/Pose.h>
-#include <sbpl_geometry_utils/Sphere.h>
-#include <sbpl_geometry_utils/Triangle.h>
+
+#include <sbpl_geometry_utils/VoxelGrid.h>
 
 namespace sbpl {
 
-void ComputeBoxBoundingSpheres(
-    double length, double width, double height,
-    double radius, std::vector<Eigen::Vector3d>& centers);
+void CreateIndexedBoxMesh(
+    double length,
+    double width,
+    double height,
+    std::vector<Eigen::Vector3d>& vertices,
+    std::vector<int>& indices);
 
-void ComputeSphereBoundingSpheres(
-    double cradius,
-    double radius, std::vector<Eigen::Vector3d>& centers);
+void CreateIndexedSphereMesh(
+    double radius,
+    int lng_count,
+    int lat_count,
+    std::vector<Eigen::Vector3d>& vertices,
+    std::vector<int>& triangles);
 
-void ComputeCylinderBoundingSpheres(
-    double cradius, double cheight,
-    double radius, std::vector<Eigen::Vector3d>& centers);
+void CreateIndexedCylinderMesh(
+    double radius,
+    double height,
+    std::vector<Eigen::Vector3d>& vertices,
+    std::vector<int>& indices);
 
-void ComputeConeBoundingSpheres(
-    double cradius, double cheight,
-    double radius, std::vector<Eigen::Vector3d>& centers);
+void CreateIndexedConeMesh(
+    double radius,
+    double height,
+    std::vector<Eigen::Vector3d>& vertices,
+    std::vector<int>& indices);
 
-void ComputeMeshBoundingSpheres(
-    const std::vector<Eigen::Vector3d>& vertices,
-    const std::vector<int>& indices,
-    double radius, std::vector<Eigen::Vector3d>& centers);
+/// \brief Create a mesh representation of a grid
+template <typename Discretizer>
+void CreateIndexedGridMesh(
+    const VoxelGrid<Discretizer>& vg,
+    std::vector<Eigen::Vector3d>& vertices,
+    std::vector<int>& indices);
 
-}
+void CreateBoxMesh(
+    double length,
+    double width,
+    double height,
+    std::vector<Eigen::Vector3d>& vertices);
+
+/// \brief Create a non-indexed mesh representation of a grid
+template <typename Discretizer>
+void CreateGridMesh(
+    const VoxelGrid<Discretizer>& vg,
+    std::vector<Eigen::Vector3d>& vertices);
+
+} // namespace sbpl
+
+#include "detail/mesh_utils.h"
 
 #endif
+

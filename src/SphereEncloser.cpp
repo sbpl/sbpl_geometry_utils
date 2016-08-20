@@ -28,227 +28,191 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include <math.h>
+#include <stdio.h>
 
 #include <Eigen/Core>
 
 #include <sbpl_geometry_utils/SphereEncloser.h>
 #include <sbpl_geometry_utils/Triangle.h>
 #include <sbpl_geometry_utils/Voxelizer.h>
+#include <sbpl_geometry_utils/mesh_utils.h>
 
-namespace sbpl
+#define SPHERE_DEBUG 0
+#if SPHERE_DEBUG
+#define SPHERE_LOG(stuff) stuff
+#else
+#define SPHERE_LOG(stuff)
+#endif
+
+namespace sbpl {
+
+/// \brief Cover the surface of a box with a set of spheres.
+///
+/// The box has dimensions length x width x height and is centered at the
+/// origin. This function will only append sphere centers to the output vector.
+void ComputeBoxBoundingSpheres(
+    double length, double width, double height,
+    double radius, std::vector<Eigen::Vector3d>& centers)
 {
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> triangles;
+    CreateIndexedBoxMesh(length, width, height, vertices, triangles);
+    ComputeMeshBoundingSpheres(vertices, triangles, radius, centers);
+}
 
-bool ComputeCylinderBoundingSpheres(
-    double cylinder_radius,
-    double cylinder_height,
-    double overestimation,
-    std::vector<Sphere>& spheres)
+/// \brief Cover the surface of a sphere with a set of spheres.
+///
+/// The sphere is centered at the origin. This function will only append sphere
+/// centers to the output vector.
+void ComputeSphereBoundingSpheres(
+    double cradius,
+    double radius, std::vector<Eigen::Vector3d>& centers)
 {
-    if (overestimation <= 0.0) {
-        return false;
-    }
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> triangles;
+    CreateIndexedSphereMesh(cradius, 7, 8, vertices, triangles);
+    ComputeMeshBoundingSpheres(vertices, triangles, radius, centers);
+}
 
-    // start by trying to cover whole width of the cylinder with a single sphere
-    // that overestimates by the allowable overestimation. this sphere should be
-    // placed tightly on one end of the cylinder, so that the edge of the
-    // cylinder cap intersects with the sphere. this will be allowed (1) if the
-    // sphere does not extend past the cap so much as to extend beyond the
-    // allowable overestimation (this condition is somehow derived from the
-    // ratio between the cylinder's radius and the maximum overestimation) and
-    // (2) if the sphere does not extend past the other cap beyond the allowable
-    // overestimation
+/// \brief Cover the surface of a cylinder with a set of spheres.
+///
+/// The cylinder is centered at the origin with the height along the z-axis.
+/// This function will only append sphere centers to the output vector.
+void ComputeCylinderBoundingSpheres(
+    double cradius, double cheight,
+    double radius, std::vector<Eigen::Vector3d>& centers)
+{
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> triangles;
+    CreateIndexedCylinderMesh(cradius, cheight, vertices, triangles);
+    ComputeMeshBoundingSpheres(vertices, triangles, radius, centers);
+}
 
-    // if the above step fails, subdivide the cylinder along its x and y axes,
-    // and make the same attempt as before. this step will eventually succeed as
-    // the radius of the sphere to the overestimation will decrease and
-    // eventually fit the cylinder tightly enough
+/// \brief Cover the surface of a cone with a set of spheres.
+///
+/// The cone is centered at the origin with the height along the z-axis. This
+/// function will only append sphere centers to the output vector.
+void ComputeConeBoundingSpheres(
+    double cradius, double cheight,
+    double radius, std::vector<Eigen::Vector3d>& centers)
+{
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> triangles;
+    CreateIndexedConeMesh(cradius, cheight, vertices, triangles);
+    ComputeMeshBoundingSpheres(vertices, triangles, radius, centers);
+}
 
-    int num_subdivs = -1;
-    double subdiv_radius;
-    double sphere_radius;
-    double standoff;
-    do {
-        ++num_subdivs;
-        subdiv_radius = cylinder_radius / pow(2.0, num_subdivs);
-        sphere_radius = subdiv_radius + overestimation;
-        const double theta = asin(subdiv_radius / sphere_radius);
-        standoff = sphere_radius * cos(theta);
-    }
-    while (standoff > 0.5 * cylinder_height || sphere_radius - standoff > overestimation);
+/// \brief Cover the surface of a mesh with a set of spheres.
+///
+/// This function will only append sphere centers to the output vector.
+void ComputeMeshBoundingSpheres(
+    const std::vector<Eigen::Vector3d>& vertices,
+    const std::vector<int>& indices,
+    double radius, std::vector<Eigen::Vector3d>& centers)
+{
+    const int triangle_count = indices.size() / 3;
 
-    const double max_span = 2 * standoff;
-    const int num_spheres = (int)ceil(cylinder_height / max_span) + 1;
-    double adjust_span = (cylinder_height - 2 * standoff) / (num_spheres - 1);
-    double subdiv_delta = 2 * cylinder_radius / pow(2.0, num_subdivs);
+    // for each triangle
+    for (int tidx = 0; tidx < triangle_count; ++tidx) {
+        const Eigen::Vector3d& a = vertices[indices[3 * tidx]];
+        const Eigen::Vector3d& b = vertices[indices[3 * tidx + 1]];
+        const Eigen::Vector3d& c = vertices[indices[3 * tidx + 2]];
 
-    for (int ix = 0; ix < (1 << num_subdivs); ++ix) {
-        for (int iy = 0; iy < (1 << num_subdivs); ++iy) {
-            for (int iz = 0; iz < num_spheres; ++iz) {
-                double x = -cylinder_radius + 0.5 * subdiv_delta + ix * subdiv_delta;
-                double y = -cylinder_radius + 0.5 * subdiv_delta + iy * subdiv_delta;
-                double z = -0.5 * cylinder_height + standoff + iz * adjust_span;
-                double r = sphere_radius;
-                Sphere s;
-                s.center.x = x;
-                s.center.y = y;
-                s.center.z = z;
-                s.radius = r;
-                spheres.push_back(s);
+        SPHERE_LOG(printf("a: %0.3f, %0.3f, %0.3f\n", a.x(), a.y(), a.z());)
+        SPHERE_LOG(printf("b: %0.3f, %0.3f, %0.3f\n", b.x(), b.y(), b.z());)
+        SPHERE_LOG(printf("c: %0.3f, %0.3f, %0.3f\n", c.x(), c.y(), c.z());)
+
+        SPHERE_LOG(printf("enclosing triangle %d\n", tidx);)
+
+        //  compute the pose of the triangle
+        const double a2 = (b - c).squaredNorm();
+        const double b2 = (a - c).squaredNorm();
+        const double c2 = (a - b).squaredNorm();
+        double bc1 = a2 * (b2 + c2 - a2);
+        double bc2 = b2 * (c2 + a2 - b2);
+        double bc3 = c2 * (a2 + b2 - c2);
+        const double s = bc1 + bc2 + bc3;
+        bc1 /= s;
+        bc2 /= s;
+        bc3 /= s;
+        Eigen::Vector3d bc(bc1, bc2, bc3);
+
+        SPHERE_LOG(printf("a2 = %0.3f, b2 = %0.3f, c2 = %0.3f\n", a2, b2, c2);)
+        SPHERE_LOG(printf("bc1 = %0.3f, bc2 = %0.3f, bc3 = %0.3f\n", bc1, bc2, bc3);)
+        SPHERE_LOG(printf("bc: %0.3f, %0.3f, %0.3f\n", bc.x(), bc.y(), bc.z());)
+
+        Eigen::Vector3d p = bc[0] * a + bc[1] * b + bc[2] * c;
+        SPHERE_LOG(printf("p: %0.3f, %0.3f, %0.3f\n", p.x(), p.y(), p.z());)
+
+        Eigen::Vector3d z = (c - b).cross(b - a);
+        z.normalize();
+        Eigen::Vector3d x;
+        if (a2 > b2 && a2 > c2) {
+            x = b - c;
+        }
+        else if (b2 > c2) {
+            x = a - c;
+        }
+        else {
+            x = a - b;
+        }
+        x.normalize();
+        Eigen::Vector3d y = z.cross(x);
+        Eigen::Affine3d T_mesh_triangle;
+        T_mesh_triangle(0, 0) = x[0];
+        T_mesh_triangle(1, 0) = x[1];
+        T_mesh_triangle(2, 0) = x[2];
+        T_mesh_triangle(3, 0) = 0.0;
+
+        T_mesh_triangle(0, 1) = y[0];
+        T_mesh_triangle(1, 1) = y[1];
+        T_mesh_triangle(2, 1) = y[2];
+        T_mesh_triangle(3, 1) = 0.0;
+
+        T_mesh_triangle(0, 2) = z[0];
+        T_mesh_triangle(1, 2) = z[1];
+        T_mesh_triangle(2, 2) = z[2];
+        T_mesh_triangle(3, 2) = 0.0;
+
+        T_mesh_triangle(0, 3) = p[0];
+        T_mesh_triangle(1, 3) = p[1];
+        T_mesh_triangle(2, 3) = p[2];
+        T_mesh_triangle(3, 3) = 1.0;
+
+        //  transform the triangle vertices into the triangle frame
+        Eigen::Vector3d at = T_mesh_triangle.inverse() * a;
+        Eigen::Vector3d bt = T_mesh_triangle.inverse() * b;
+        Eigen::Vector3d ct = T_mesh_triangle.inverse() * c;
+        SPHERE_LOG(printf("at: %0.3f, %0.3f, %0.3f\n", at.x(), at.y(), at.z());)
+        SPHERE_LOG(printf("bt: %0.3f, %0.3f, %0.3f\n", bt.x(), bt.y(), bt.z());)
+        SPHERE_LOG(printf("ct: %0.3f, %0.3f, %0.3f\n", ct.x(), ct.y(), ct.z());)
+
+        double minx = std::min(at.x(), std::min(bt.x(), ct.x()));
+        double miny = std::min(at.y(), std::min(bt.y(), ct.y()));
+        double maxx = std::max(at.x(), std::max(bt.x(), ct.x()));
+        double maxy = std::max(at.y(), std::max(bt.y(), ct.y()));
+
+        //  voxelize the triangle
+        PivotVoxelGrid vg(
+                Eigen::Vector3d(minx, miny, 0.0),
+                Eigen::Vector3d(maxx - minx, maxy - miny, 0.0),
+                Eigen::Vector3d(radius, radius, radius),
+                Eigen::Vector3d::Zero());
+        VoxelizeTriangle(at, bt, ct, vg);
+
+        // extract filled voxels and append as sphere centers
+        for (int x = 0; x < vg.sizeX(); ++x) {
+            for (int y = 0; y < vg.sizeY(); ++y) {
+                MemoryCoord mc(x, y, 0);
+                if (vg[mc]) {
+                    WorldCoord wc = vg.memoryToWorld(mc);
+                    centers.push_back(
+                            T_mesh_triangle *
+                            Eigen::Vector3d(wc.x, wc.y, wc.z));
+                }
             }
         }
     }
-
-    return true;
 }
 
-void SphereEncloser::encloseBox(
-    double xSize,
-    double ySize,
-    double zSize,
-    double radius,
-    std::vector<std::vector<double> >& spheres)
-{
-    spheres.clear();
-    double rootTwo = sqrt(2.0);
-    double enclCubeLength = rootTwo * radius;
-
-    int xNumSpheres = ceil(xSize / (enclCubeLength));
-    int yNumSpheres = ceil(ySize / (enclCubeLength));
-    int zNumSpheres = ceil(zSize / (enclCubeLength));
-
-    // Compute the coordinate of the sphere in the bottom-left-back corner
-    double xStart = -1.0 * (xNumSpheres / 2) * enclCubeLength;
-    if (xNumSpheres % 2 == 0) xStart += enclCubeLength / 2.0;
-
-    double yStart = -1.0 * (yNumSpheres / 2) * enclCubeLength;
-    if (yNumSpheres % 2 == 0) yStart += enclCubeLength / 2.0;
-
-    double zStart = -1.0 * (zNumSpheres / 2) * enclCubeLength;
-    if (zNumSpheres % 2 == 0) zStart += enclCubeLength / 2.0;
-
-    // Compute the locations of all the spheres
-    for (int x = 0; x < xNumSpheres; x++) {
-        for (int y = 0; y < yNumSpheres; y++) {
-            for (int z = 0; z < zNumSpheres; z++) {
-                std::vector<double> sphere;
-                sphere.push_back(xStart + enclCubeLength * x);
-                sphere.push_back(yStart + enclCubeLength * y);
-                sphere.push_back(zStart + enclCubeLength * z);
-                spheres.push_back(sphere);
-            }
-        }
-    }
-}
-
-void SphereEncloser::encloseBox(
-    double xSize,
-    double ySize,
-    double zSize,
-    const geometry_msgs::Pose& pose,
-    double radius,
-    std::vector<std::vector<double> >& spheres)
-{
-    // TODO: transform to be centered at 0,0,0 and axis-aligned; enclose; transform back
-    return;
-}
-
-void SphereEncloser::encloseCylinder(
-    double cylinderRadius,
-    double length,
-    double radius,
-    std::vector<std::vector<double> >& spheres)
-{
-    return; // TODO
-}
-
-void SphereEncloser::encloseCylinder(
-    double cylinderRadius,
-    double length,
-    const geometry_msgs::Pose& pose,
-    double radius,
-    std::vector<std::vector<double> >& spheres)
-{
-    return; // TODO
-}
-
-void SphereEncloser::encloseMesh(
-    const std::vector<geometry_msgs::Point>& vertices,
-    const std::vector<int>& triangles,
-    double radius,
-    std::vector<std::vector<double> >& spheres,
-    bool fill,
-    int maxSpheres)
-{
-    // TODO: use the maxSpheres parameter; here's some commented out code from the old encloseMesh function
-//    if (maxSpheres > 0 && numVoxelsFilled > maxSpheres) {
-//        // we've been trying new radii and nothing can bring it down to the desired amount of spheres
-//        if (radius > maxX - minX) {
-//            spheres.clear();
-//            return;
-//        }
-//
-//        double boundingVolume = (maxX - minX) * (maxY - minY) * (maxZ - minZ);
-//        double newVoxelLength = pow(boundingVolume / maxSpheres, 0.333333);
-//        double newRadius = newVoxelLength * sqrt(2.0) / 2.0;
-//
-//        // we calculated the same radius as suggested which means we were too optimistic with our radius and it should increase
-//        if (fabs(newRadius - radius) < 1.0e-6) {
-//            newRadius = radius * 1.1;
-//        }
-//        else if (newRadius < radius) {
-//            newRadius = radius * 1.1;
-//        }
-//
-//        ROS_INFO("Need a larger radius (%d > %d). Let's try %0.3f instead of %0.3f",
-//                numVoxelsFilled, maxSpheres, newRadius, radius);
-//
-//        spheres.clear();
-//        encloseMesh(vertices, triangles, newRadius, spheres, fill, maxSpheres);
-//
-//        ROS_INFO("Ended up with only %lu spheres.", spheres.size());
-//
-//        return;
-//    }
-    double res = sqrt(2.0) * radius;
-
-    std::vector<Eigen::Vector3d> eigen_vertices;
-    eigen_vertices.reserve(vertices.size());
-    for (const geometry_msgs::Point& vertex : vertices) {
-        eigen_vertices.push_back(Eigen::Vector3d(vertex.x, vertex.y, vertex.z));
-    }
-
-    std::vector<Eigen::Vector3d> sphere_points;
-    VoxelizeMesh(eigen_vertices, triangles, res, sphere_points, fill);
-
-    spheres.reserve(sphere_points.size());
-    for (const Eigen::Vector3d& sphere_point : sphere_points) {
-        const std::vector<double> sphere =
-        {
-            sphere_point.x(),
-            sphere_point.y(),
-            sphere_point.z(),
-            radius
-        };
-        spheres.push_back(sphere);
-    }
-}
-
-void SphereEncloser::encloseMesh(
-    const std::vector<geometry_msgs::Point>& vertices,
-    const std::vector<int>& triangles,
-    const geometry_msgs::Pose& pose,
-    double radius,
-    std::vector<std::vector<double> >& spheres,
-    bool fillMesh,
-    int maxSpheres)
-{
-    return; // TODO
-}
-
-/******************** Private Methods ********************/
-
-SphereEncloser::SphereEncloser()
-{
-}
-
-}
+} // namespace sbpl
