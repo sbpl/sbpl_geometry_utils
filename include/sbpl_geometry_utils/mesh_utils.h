@@ -34,7 +34,7 @@
 
 #include <Eigen/Dense>
 
-#include <sbpl_geometry_utils/VoxelGrid.h>
+#include <sbpl_geometry_utils/voxel_grid.h>
 
 namespace sbpl {
 

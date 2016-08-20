@@ -38,7 +38,7 @@
 
 // project includes
 #include <sbpl_geometry_utils/triangle.h>
-#include <sbpl_geometry_utils/VoxelGrid.h>
+#include <sbpl_geometry_utils/voxel_grid.h>
 #include <sbpl_geometry_utils/utils.h>
 
 namespace sbpl {
