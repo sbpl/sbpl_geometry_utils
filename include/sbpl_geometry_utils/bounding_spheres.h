@@ -33,8 +33,8 @@
 #include <vector>
 #include <Eigen/Dense>
 #include <geometry_msgs/Pose.h>
-#include <sbpl_geometry_utils/Sphere.h>
-#include <sbpl_geometry_utils/Triangle.h>
+#include <sbpl_geometry_utils/sphere.h>
+#include <sbpl_geometry_utils/triangle.h>
 
 namespace sbpl {
 

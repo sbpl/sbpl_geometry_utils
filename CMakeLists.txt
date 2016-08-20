@@ -40,7 +40,6 @@ add_library(
     sbpl_geometry_utils
     src/measure_similarity.cpp
     src/bounding_spheres.cpp
-    src/Triangle.cpp
     src/voxelize.cpp
     src/interpolate.cpp
     src/rasterize.cpp

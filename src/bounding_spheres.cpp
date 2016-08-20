@@ -33,7 +33,7 @@
 #include <Eigen/Core>
 
 #include <sbpl_geometry_utils/bounding_spheres.h>
-#include <sbpl_geometry_utils/Triangle.h>
+#include <sbpl_geometry_utils/triangle.h>
 #include <sbpl_geometry_utils/voxelize.h>
 #include <sbpl_geometry_utils/mesh_utils.h>
 
