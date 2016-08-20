@@ -13,7 +13,7 @@ else()
 endif()
 
 catkin_package(
-    INCLUDE_DIRS include src
+    INCLUDE_DIRS include
     LIBRARIES sbpl_geometry_utils
     CATKIN_DEPENDS geometry_msgs
     DEPENDS eigen)

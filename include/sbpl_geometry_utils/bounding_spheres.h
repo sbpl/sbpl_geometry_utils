@@ -31,8 +31,9 @@
 #define sbpl_geometry_bounding_spheres_h
 
 #include <vector>
+
 #include <Eigen/Dense>
-#include <geometry_msgs/Pose.h>
+
 #include <sbpl_geometry_utils/sphere.h>
 #include <sbpl_geometry_utils/triangle.h>
 
