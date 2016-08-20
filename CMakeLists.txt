@@ -38,14 +38,13 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${C11_FLAGS}")
 
 add_library(
     sbpl_geometry_utils
-    src/Interpolator.cpp
     src/PathSimilarityMeasurer.cpp
     src/Sphere.cpp
     src/SphereEncloser.cpp
     src/Triangle.cpp
     src/Voxelizer.cpp
     src/interpolation.cpp
-    src/raster.cpp
+    src/rasterize.cpp
     src/mesh_utils.cpp)
 target_link_libraries(sbpl_geometry_utils ${catkin_LIBRARIES})
 
