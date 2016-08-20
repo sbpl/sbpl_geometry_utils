@@ -27,8 +27,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //////////////////////////////////////////////////////////////////////////////
 
-#ifndef SBPL_GEOMETRY_UTILS_SPHERE_ENCLOSER_H
-#define SBPL_GEOMETRY_UTILS_SPHERE_ENCLOSER_H
+#ifndef sbpl_geometry_bounding_spheres_h
+#define sbpl_geometry_bounding_spheres_h
 
 #include <vector>
 #include <Eigen/Dense>

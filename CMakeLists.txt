@@ -40,7 +40,7 @@ add_library(
     sbpl_geometry_utils
     src/PathSimilarityMeasurer.cpp
     src/Sphere.cpp
-    src/SphereEncloser.cpp
+    src/bounding_spheres.cpp
     src/Triangle.cpp
     src/Voxelizer.cpp
     src/interpolation.cpp
