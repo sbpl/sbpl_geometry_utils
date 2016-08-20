@@ -42,8 +42,8 @@ add_library(
     src/Sphere.cpp
     src/bounding_spheres.cpp
     src/Triangle.cpp
-    src/Voxelizer.cpp
-    src/interpolation.cpp
+    src/voxelize.cpp
+    src/interpolate.cpp
     src/rasterize.cpp
     src/mesh_utils.cpp)
 target_link_libraries(sbpl_geometry_utils ${catkin_LIBRARIES})

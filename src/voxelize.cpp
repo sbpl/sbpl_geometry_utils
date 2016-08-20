@@ -27,7 +27,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //////////////////////////////////////////////////////////////////////////////
 
-#include <sbpl_geometry_utils/Voxelizer.h>
+#include <sbpl_geometry_utils/voxelize.h>
 
 // standard includes
 #include <math.h>

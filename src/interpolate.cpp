@@ -28,7 +28,7 @@
 //////////////////////////////////////////////////////////////////////////////
 
 #include <cmath>
-#include <sbpl_geometry_utils/interpolation.h>
+#include <sbpl_geometry_utils/interpolate.h>
 #include <sbpl_geometry_utils/utils.h>
 
 namespace sbpl
