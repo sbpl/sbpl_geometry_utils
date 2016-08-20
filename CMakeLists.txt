@@ -38,7 +38,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${C11_FLAGS}")
 
 add_library(
     sbpl_geometry_utils
-    src/PathSimilarityMeasurer.cpp
+    src/measure_similarity.cpp
     src/Sphere.cpp
     src/bounding_spheres.cpp
     src/Triangle.cpp

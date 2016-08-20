@@ -113,6 +113,6 @@ std::ostream& operator<<(std::ostream& o, const geometry_msgs::Point& p);
 
 }
 
-#include "PathSimilarityMeasurer-inl.h"
+#include "detail/measure_similarity.h"
 
 #endif

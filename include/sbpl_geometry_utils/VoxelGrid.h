@@ -30,7 +30,7 @@
 #ifndef sbpl_geometry_voxel_grid_h
 #define sbpl_geometry_voxel_grid_h
 
-#include <sbpl_geometry_utils/Discretizer.h>
+#include <sbpl_geometry_utils/discretize.h>
 
 namespace sbpl {
 

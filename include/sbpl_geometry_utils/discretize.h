@@ -27,8 +27,8 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //////////////////////////////////////////////////////////////////////////////
 
-#ifndef sbpl_Discretizer_h
-#define sbpl_Discretizer_h
+#ifndef sbpl_geometry_discretize_h
+#define sbpl_geometry_discretize_h
 
 namespace sbpl {
 
