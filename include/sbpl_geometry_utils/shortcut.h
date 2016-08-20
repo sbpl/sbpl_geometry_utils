@@ -189,7 +189,7 @@ bool DivideAndConquerShortcutPath(
 } // namespace shortcut
 } // namespace sbpl
 
-#include <sbpl_geometry_utils/shortcut-inl.h>
+#include "detail/shortcut.h"
 
 #endif
 
