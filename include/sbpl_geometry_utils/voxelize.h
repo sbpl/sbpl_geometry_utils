@@ -43,31 +43,11 @@
 
 namespace sbpl {
 
-/// \brief Voxelize a box at the origin
 void VoxelizeBox(
     double length,
     double width,
     double height,
     double res,
-    std::vector<Eigen::Vector3d>& voxels,
-    bool fill = false);
-
-/// \brief Voxelize a box at a given pose
-void VoxelizeBox(
-    double length,
-    double width,
-    double height,
-    const Eigen::Affine3d& pose,
-    double res,
-    std::vector<Eigen::Vector3d>& voxels,
-    bool fill = false);
-
-void VoxelizeBox(
-    double length,
-    double width,
-    double height,
-    double res,
-    const Eigen::Vector3d& voxel_origin,
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
@@ -77,18 +57,34 @@ void VoxelizeBox(
     double height,
     const Eigen::Affine3d& pose,
     double res,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill = false);
+
+void VoxelizeBox(
+    double length,
+    double width,
+    double height,
+    double res,
     const Eigen::Vector3d& voxel_origin,
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
-/// \brief Voxelize a sphere at the origin
+void VoxelizeBox(
+    double length,
+    double width,
+    double height,
+    const Eigen::Affine3d& pose,
+    double res,
+    const Eigen::Vector3d& voxel_origin,
+    std::vector<Eigen::Vector3d>& voxels,
+    bool fill = false);
+
 void VoxelizeSphere(
     double radius,
     double res,
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
-/// \brief Voxelize a sphere at a given pose
 void VoxelizeSphere(
     double radius,
     const Eigen::Affine3d& pose,
@@ -96,8 +92,6 @@ void VoxelizeSphere(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
-/// \brief Voxelize a sphere at the origin using a specified origin for the
-///     voxel grid
 void VoxelizeSphere(
     double radius,
     double res,
@@ -105,8 +99,6 @@ void VoxelizeSphere(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
-/// \brief Voxelize a sphere at a given pose using a specified origin for the
-///     voxel grid
 void VoxelizeSphere(
     double radius,
     const Eigen::Affine3d& pose,
@@ -115,7 +107,6 @@ void VoxelizeSphere(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
-/// \brief Voxelize a cylinder at the origin
 void VoxelizeCylinder(
     double radius,
     double height,
@@ -123,7 +114,6 @@ void VoxelizeCylinder(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
-/// \brief Voxelize a cylinder at a given pose
 void VoxelizeCylinder(
     double radius,
     double height,
@@ -132,8 +122,6 @@ void VoxelizeCylinder(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
-/// \brief Voxelize a cylinder at the origin using a specified origin for the
-///     voxel grid
 void VoxelizeCylinder(
     double radius,
     double height,
@@ -142,8 +130,6 @@ void VoxelizeCylinder(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
-/// \brief Voxelize a cylinder at a given pose using a specified origin for the
-///     voxel grid
 void VoxelizeCylinder(
     double radius,
     double height,
@@ -153,7 +139,6 @@ void VoxelizeCylinder(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
-/// \brief Voxelize a cone at the origin
 void VoxelizeCone(
     double radius,
     double height,
@@ -161,7 +146,6 @@ void VoxelizeCone(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
-/// \brief Voxelize a cone at a given pose
 void VoxelizeCone(
     double radius,
     double height,
@@ -170,8 +154,6 @@ void VoxelizeCone(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
-/// \brief Voxelize a cone at the origin using a specified origin for the voxel
-///     grid
 void VoxelizeCone(
     double radius,
     double height,
@@ -180,8 +162,6 @@ void VoxelizeCone(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
-/// \brief Voxelize a cone at a given pose using a specified origin for the
-///     voxel grid
 void VoxelizeCone(
     double radius,
     double height,
@@ -191,7 +171,6 @@ void VoxelizeCone(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
-/// \brief Voxelize a mesh at the origin
 void VoxelizeMesh(
     const std::vector<Eigen::Vector3d>& vertices,
     const std::vector<int>& indices,
@@ -199,7 +178,6 @@ void VoxelizeMesh(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
-/// \brief Voxelize a mesh at a given pose
 void VoxelizeMesh(
     const std::vector<Eigen::Vector3d>& vertices,
     const std::vector<int>& indices,
@@ -208,8 +186,6 @@ void VoxelizeMesh(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
-/// \brief Voxelize a mesh at the origin using a specified origin for the voxel
-///     grid
 void VoxelizeMesh(
     const std::vector<Eigen::Vector3d>& vertices,
     const std::vector<int>& indices,
@@ -218,8 +194,6 @@ void VoxelizeMesh(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
-/// \brief Voxelize a mesh at a given pose using a specified origin for the
-///     voxel grid
 void VoxelizeMesh(
     const std::vector<Eigen::Vector3d>& vertices,
     const std::vector<int>& indices,
@@ -229,7 +203,6 @@ void VoxelizeMesh(
     std::vector<Eigen::Vector3d>& voxels,
     bool fill = false);
 
-/// \brief Voxelize a plane within a given bounding box
 void VoxelizePlane(
     double a, double b, double c, double d,
     const Eigen::Vector3d& min,
@@ -237,8 +210,6 @@ void VoxelizePlane(
     double res,
     std::vector<Eigen::Vector3d>& voxels);
 
-/// \brief Voxelize a plane within a given bounding box using a specified voxel
-///     grid origin
 void VoxelizePlane(
     double a, double b, double c, double d,
     const Eigen::Vector3d& min,
@@ -247,16 +218,6 @@ void VoxelizePlane(
     const Eigen::Vector3d& voxel_origin,
     std::vector<Eigen::Vector3d>& voxels);
 
-/// \brief Encloses a list of spheres with a set of voxels of a given size
-///
-/// Encloses a list of spheres with a set of voxels of a given size. The generated voxels appear in the frame the
-/// spheres are described in.
-///
-/// \param[in] spheres The list of spheres to voxelize
-/// \param[in] res The resolution of the voxel cells
-/// \param[in] removeDuplicates Whether to remove duplicate voxels
-/// \param[out] voxels The vector in which to store the voxels
-/// \param[out] volume The combined volume of all the spheres
 void VoxelizeSphereList(
     const std::vector<double>& radii,
     const std::vector<Eigen::Affine3d>& poses,
@@ -266,17 +227,6 @@ void VoxelizeSphereList(
     bool unique,
     bool fill = false);
 
-/// \brief a Quick And Dirty (QAD) enclosure of a list of spheres with a set of
-///     voxels of a given size
-///
-/// Encloses a list of spheres with a set of voxels of a given size. The
-/// generated voxels appear in the frame the spheres are described in.
-///
-/// \param[in] spheres The list of spheres to voxelize
-/// \param[in] res The resolution of the voxel cells
-/// \param[in] removeDuplicates Whether to remove duplicate voxels
-/// \param[out] voxels The vector in which to store the voxels
-/// \param[out] volume The combined volume of all the spheres
 void VoxelizeSphereListQAD(
     const std::vector<double>& radii,
     const std::vector<Eigen::Affine3d>& poses,

@@ -714,6 +714,9 @@ bool CompareZ(const Eigen::Vector3d& u, const Eigen::Vector3d& v)
 // Public Function Definitions //
 /////////////////////////////////
 
+/// \brief Voxelize a box at the origin
+///
+/// Output voxels are appended to the input voxel vector.
 void VoxelizeBox(
     double length,
     double width,
@@ -728,6 +731,9 @@ void VoxelizeBox(
     VoxelizeMesh(vertices, triangles, res, voxels, fill);
 }
 
+/// \brief Voxelize a box at a given pose
+///
+/// Output voxels are appended to the input voxel vector.
 void VoxelizeBox(
     double length,
     double width,
@@ -776,6 +782,9 @@ void VoxelizeBox(
     VoxelizeMesh(vertices, triangles, res, voxel_origin, voxels, fill);
 }
 
+/// \brief Voxelize a sphere at the origin
+///
+/// Output voxels are appended to the input voxel vector.
 void VoxelizeSphere(
     double radius,
     double res,
@@ -789,6 +798,9 @@ void VoxelizeSphere(
     VoxelizeMesh(vertices, triangles, res, voxels, fill);
 }
 
+/// \brief Voxelize a sphere at a given pose
+///
+/// Output voxels are appended to the input voxel vector.
 void VoxelizeSphere(
     double radius,
     const Eigen::Affine3d& pose,
@@ -804,6 +816,10 @@ void VoxelizeSphere(
     VoxelizeMesh(vertices, triangles, res, voxels, fill);
 }
 
+/// \brief Voxelize a sphere at the origin using a specified origin for the
+///     voxel grid
+///
+/// Output voxels are appended to the input voxel vector.
 void VoxelizeSphere(
     double radius,
     double res,
@@ -818,6 +834,10 @@ void VoxelizeSphere(
     VoxelizeMesh(vertices, triangles, res, voxel_origin, voxels, fill);
 }
 
+/// \brief Voxelize a sphere at a given pose using a specified origin for the
+///     voxel grid
+///
+/// Output voxels are appended to the input voxel vector.
 void VoxelizeSphere(
     double radius,
     const Eigen::Affine3d& pose,
@@ -834,6 +854,9 @@ void VoxelizeSphere(
     VoxelizeMesh(vertices, triangles, res, voxel_origin, voxels, fill);
 }
 
+/// \brief Voxelize a cylinder at the origin
+///
+/// Output voxels are appended to the input voxel vector.
 void VoxelizeCylinder(
     double radius,
     double length,
@@ -848,6 +871,9 @@ void VoxelizeCylinder(
     VoxelizeMesh(vertices, triangles, res, voxels, fill);
 }
 
+/// \brief Voxelize a cylinder at a given pose
+///
+/// Output voxels are appended to the input voxel vector.
 void VoxelizeCylinder(
     double radius,
     double length,
@@ -864,6 +890,10 @@ void VoxelizeCylinder(
     VoxelizeMesh(vertices, triangles, res, voxels, fill);
 }
 
+/// \brief Voxelize a cylinder at the origin using a specified origin for the
+///     voxel grid
+///
+/// Output voxels are appended to the input voxel vector.
 void VoxelizeCylinder(
     double radius,
     double height,
@@ -879,6 +909,10 @@ void VoxelizeCylinder(
     VoxelizeMesh(vertices, triangles, res, voxel_origin, voxels, fill);
 }
 
+/// \brief Voxelize a cylinder at a given pose using a specified origin for the
+///     voxel grid
+///
+/// Output voxels are appended to the input voxel vector.
 void VoxelizeCylinder(
     double radius,
     double height,
@@ -896,6 +930,9 @@ void VoxelizeCylinder(
     VoxelizeMesh(vertices, triangles, res, voxel_origin, voxels, fill);
 }
 
+/// \brief Voxelize a cone at the origin
+///
+/// Output voxels are appended to the input voxel vector.
 void VoxelizeCone(
     double radius,
     double height,
@@ -909,6 +946,9 @@ void VoxelizeCone(
     VoxelizeMesh(vertices, triangles, res, voxels, fill);
 }
 
+/// \brief Voxelize a cone at a given pose
+///
+/// Output voxels are appended to the input voxel vector.
 void VoxelizeCone(
     double radius,
     double height,
@@ -924,6 +964,10 @@ void VoxelizeCone(
     VoxelizeMesh(vertices, triangles, res, voxels, fill);
 }
 
+/// \brief Voxelize a cone at the origin using a specified origin for the voxel
+///     grid
+///
+/// Output voxels are appended to the input voxel vector.
 void VoxelizeCone(
     double radius,
     double height,
@@ -938,6 +982,10 @@ void VoxelizeCone(
     VoxelizeMesh(vertices, triangles, res, voxel_origin, voxels, fill);
 }
 
+/// \brief Voxelize a cone at a given pose using a specified origin for the
+///     voxel grid
+///
+/// Output voxels are appended to the input voxel vector.
 void VoxelizeCone(
     double radius,
     double height,
@@ -955,6 +1003,9 @@ void VoxelizeCone(
     VoxelizeMesh(vertices, triangles, res, voxel_origin, voxels, fill);
 }
 
+/// \brief Voxelize a mesh at the origin
+///
+/// Output voxels are appended to the input voxel vector.
 void VoxelizeMesh(
     const std::vector<Eigen::Vector3d>& vertices,
     const std::vector<int>& indices,
@@ -966,8 +1017,6 @@ void VoxelizeMesh(
         std::cerr << "Incorrect indexed triangles format" << std::endl;
         return;
     }
-
-    voxels.clear();
 
     Eigen::Vector3d min;
     Eigen::Vector3d max;
@@ -983,6 +1032,9 @@ void VoxelizeMesh(
     ExtractVoxels(vg, voxels);
 }
 
+/// \brief Voxelize a mesh at a given pose
+///
+/// Output voxels are appended to the input voxel vector.
 void VoxelizeMesh(
     const std::vector<Eigen::Vector3d>& vertices,
     const std::vector<int>& triangles,
@@ -996,6 +1048,10 @@ void VoxelizeMesh(
     VoxelizeMesh(v_copy, triangles, res, voxels, fill);
 }
 
+/// \brief Voxelize a mesh at the origin using a specified origin for the voxel
+///     grid
+///
+/// Output voxels are appended to the input voxel vector.
 void VoxelizeMesh(
     const std::vector<Eigen::Vector3d>& vertices,
     const std::vector<int>& triangles,
@@ -1008,8 +1064,6 @@ void VoxelizeMesh(
         std::cerr << "Incorrect indexed triangles format" << std::endl;
         return;
     }
-
-    voxels.clear();
 
     Eigen::Vector3d min;
     Eigen::Vector3d max;
@@ -1027,6 +1081,10 @@ void VoxelizeMesh(
     ExtractVoxels(vg, voxels);
 }
 
+/// \brief Voxelize a mesh at a given pose using a specified origin for the
+///     voxel grid
+///
+/// Output voxels are appended to the input voxel vector.
 void VoxelizeMesh(
     const std::vector<Eigen::Vector3d>& vertices,
     const std::vector<int>& indices,
@@ -1041,6 +1099,34 @@ void VoxelizeMesh(
     VoxelizeMesh(v_copy, indices, res, voxel_origin, voxels, fill);
 }
 
+/// \brief Voxelize a plane within a given bounding box
+void VoxelizePlane(
+    double a, double b, double c, double d,
+    const Eigen::Vector3d& min,
+    const Eigen::Vector3d& max,
+    double res,
+    std::vector<Eigen::Vector3d>& voxels);
+
+/// \brief Voxelize a plane within a given bounding box using a specified voxel
+///     grid origin
+void VoxelizePlane(
+    double a, double b, double c, double d,
+    const Eigen::Vector3d& min,
+    const Eigen::Vector3d& max,
+    double res,
+    const Eigen::Vector3d& voxel_origin,
+    std::vector<Eigen::Vector3d>& voxels);
+
+/// \brief Encloses a list of spheres with a set of voxels of a given size
+///
+/// Encloses a list of spheres with a set of voxels of a given size. The generated voxels appear in the frame the
+/// spheres are described in.
+///
+/// \param[in] spheres The list of spheres to voxelize
+/// \param[in] res The resolution of the voxel cells
+/// \param[in] removeDuplicates Whether to remove duplicate voxels
+/// \param[out] voxels The vector in which to store the voxels
+/// \param[out] volume The combined volume of all the spheres
 void VoxelizeSphereList(
     const std::vector<double>& radii,
     const std::vector<Eigen::Affine3d>& poses,
@@ -1053,8 +1139,6 @@ void VoxelizeSphereList(
     if (radii.size() != poses.size()) {
         return;
     }
-
-    voxels.clear();
 
     for (size_t i = 0; i < radii.size(); i++) {
         std::vector<Eigen::Vector3d> vertices;
@@ -1091,6 +1175,17 @@ void VoxelizeSphereList(
     }
 }
 
+/// \brief a Quick And Dirty (QAD) enclosure of a list of spheres with a set of
+///     voxels of a given size
+///
+/// Encloses a list of spheres with a set of voxels of a given size. The
+/// generated voxels appear in the frame the spheres are described in.
+///
+/// \param[in] spheres The list of spheres to voxelize
+/// \param[in] res The resolution of the voxel cells
+/// \param[in] removeDuplicates Whether to remove duplicate voxels
+/// \param[out] voxels The vector in which to store the voxels
+/// \param[out] volume The combined volume of all the spheres
 void VoxelizeSphereListQAD(
     const std::vector<double>& spheres,
     const std::vector<Eigen::Affine3d>& poses,
@@ -1100,8 +1195,6 @@ void VoxelizeSphereListQAD(
     bool unique,
     bool fill)
 {
-//    voxels.clear();
-//
 //    // compute the continuous bounding box of all spheres
 //    double minXc = 1000000000.0;
 //    double minYc = 1000000000.0;
