@@ -64,6 +64,13 @@ void CreateIndexedConeMesh(
     std::vector<Eigen::Vector3d>& vertices,
     std::vector<int>& indices);
 
+void CreateIndexedPlaneMesh(
+    double a, double b, double c, double d,
+    const Eigen::Vector3d& min,
+    const Eigen::Vector3d& max,
+    std::vector<Eigen::Vector3d>& vertices,
+    std::vector<int>& indices);
+
 /// \brief Create a mesh representation of a grid
 template <typename Discretizer>
 void CreateIndexedGridMesh(

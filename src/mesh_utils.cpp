@@ -295,6 +295,147 @@ void CreateIndexedConeMesh(
     }
 }
 
+/// Construct a mesh of a plane, clipped by an axis-aligned bounding box
+void CreateIndexedPlaneMesh(
+    double a, double b, double c, double d,
+    const Eigen::Vector3d& min,
+    const Eigen::Vector3d& max,
+    std::vector<Eigen::Vector3d>& vertices,
+    std::vector<int>& indices)
+{
+    Eigen::Vector3d corners[8] =
+    {
+        Eigen::Vector3d(min.x(), min.y(), min.z()),
+        Eigen::Vector3d(min.x(), min.y(), max.z()),
+        Eigen::Vector3d(min.x(), max.y(), min.z()),
+        Eigen::Vector3d(min.x(), max.y(), max.z()),
+        Eigen::Vector3d(max.x(), min.y(), min.z()),
+        Eigen::Vector3d(max.x(), min.y(), max.z()),
+        Eigen::Vector3d(max.x(), max.y(), min.z()),
+        Eigen::Vector3d(max.x(), max.y(), max.z()),
+    };
+
+    bool corner_isxn[8] =
+    {
+        false, false, false, false, false, false, false, false
+    };
+
+    for (size_t i = 0; i < 8; ++i) {
+        double dp = a * corners[i].x() + b * corners[i].y() + c * corners[i].z() + d;
+        corner_isxn[i] = (dp == 0.0);
+    }
+
+    double x, y, z;
+
+    // length edges
+
+    x = -(b * min.y() + c * min.z() + d) / a;
+    if (x >= min.x() && x <= max.x()) {
+        vertices.emplace_back(x, min.y(), min.z());
+    }
+
+    x = -(b * min.y() + c * max.z() + d) / a;
+    if (x >= min.x() && x <= max.x()) {
+        vertices.emplace_back(x, min.y(), max.z());
+    }
+
+    x = -(b * max.y() + c * min.z() + d) / a;
+    if (x >= min.x() && x <= max.x()) {
+        vertices.emplace_back(x, max.y(), min.z());
+    }
+
+    x = -(b * max.y() + c * max.z() + d) / a;
+    if (x >= min.x() && x <= max.x()) {
+        vertices.emplace_back(x, max.y(), max.z());
+    }
+
+    // width edges
+
+    y = -(a * min.x() + c * min.z() + d) / b;
+    if (y >= min.y() && y <= max.y()) {
+        vertices.emplace_back(min.x(), y, min.z());
+    }
+
+    y = -(a * min.x() + c * max.z() + d) / b;
+    if (y >= min.y() && y <= max.y()) {
+        vertices.emplace_back(min.x(), y, max.z());
+    }
+
+    y = -(a * max.x() + c * min.z() + d) / b;
+    if (y >= min.y() && y <= max.y()) {
+        vertices.emplace_back(max.x(), y, min.z());
+    }
+
+    y = -(a * max.x() + c * max.z() + d) / b;
+    if (y >= min.y() && y <= max.y()) {
+        vertices.emplace_back(max.x(), y, max.z());
+    }
+
+    // height edges
+
+    z = -(a * min.x() + b * min.y() + d) / c;
+    if (z >= min.z() && z <= max.z()) {
+        vertices.emplace_back(min.x(), min.y(), z);
+    }
+
+    z = -(a * min.x() + b * max.y() + d) / c;
+    if (z >= min.z() && z <= max.z()) {
+        vertices.emplace_back(min.x(), max.y(), z);
+    }
+
+    z = -(a * max.x() + b * min.y() + d) / c;
+    if (z >= min.z() && z <= max.z()) {
+        vertices.emplace_back(max.x(), min.y(), z);
+    }
+
+    z = -(a * max.x() + b * max.y() + d) / c;
+    if (z >= min.z() && z <= max.z()) {
+        vertices.emplace_back(max.x(), max.y(), z);
+    }
+
+    if (vertices.size() < 3) {
+        return;
+    }
+
+    // compute the centroid of all intersection vertices
+    Eigen::Vector3d centroid(Eigen::Vector3d::Zero());
+    for (const Eigen::Vector3d& v : vertices) {
+        centroid += v;
+    }
+    if (!vertices.empty()) {
+        centroid /= (double)vertices.size();
+    }
+
+    // define an orientation frame
+    Eigen::Vector3d zaxis(a, b, c);
+    Eigen::AngleAxisd aa(M_PI / 2.0, Eigen::Vector3d::UnitY());
+    Eigen::Vector3d xaxis = aa * zaxis;
+    Eigen::Vector3d yaxis = zaxis.cross(xaxis);
+
+    // sort counter clockwise around plane normal rooted at centroid
+    std::sort(vertices.begin(), vertices.end(),
+        [&](const Eigen::Vector3d& u, const Eigen::Vector3d& v)
+        {
+            double ux = xaxis.dot(u - centroid);
+            double uy = yaxis.dot(u - centroid);
+            double vx = xaxis.dot(v - centroid);
+            double vy = yaxis.dot(v - centroid);
+            double th1 = std::atan2(uy, ux);
+            double th2 = std::atan2(vy, vx);
+            return th1 < th2;
+        });
+
+    // create triangle fan from the first vertex
+    indices.push_back(0);
+    indices.push_back(1);
+    indices.push_back(2);
+    for (size_t i = 3; i < vertices.size(); ++i) {
+        indices.push_back(0);
+        indices.push_back(i - 1);
+        indices.push_back(i - 2);
+    }
+}
+
 /// \brief Create a non-indexed mesh representation of a box
 void CreateBoxMesh(
     double length,
