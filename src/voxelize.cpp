@@ -44,12 +44,6 @@ namespace sbpl {
 // Static Function Declarations //
 //////////////////////////////////
 
-static void VoxelizePlane(
-    double a, double b, double c, double d,
-    double voxel_size,
-    unsigned char* grid,
-    int width, int height, int depth);
-
 template <typename Discretizer>
 static void VoxelizeMesh(
     const std::vector<Eigen::Vector3d>& vertices,
@@ -113,37 +107,6 @@ static bool CompareZ(const Eigen::Vector3d& u, const Eigen::Vector3d& v);
 /////////////////////////////////
 // Static Function Definitions //
 /////////////////////////////////
-
-void VoxelizePlane(
-    double a, double b, double c, double d,
-    double voxel_size,
-    unsigned char* grid,
-    int length,
-    int width,
-    int height)
-{
-    // FIXME
-
-    d *= -1;
-//    double t = 1.0 / 2.0; // TODO: make voxel size
-    double t = sqrt(3) / 2;
-    for (int z = 0; z < height; z++) {
-        for (int y = 0; y < width; y++) {
-            for (int x = 0; x < length; x++) {
-                // for each voxel at x, y, z
-                double voxel_x = x + 0.5;
-                double voxel_y = y + 0.5;
-                double voxel_z = z + 0.5;
-                if (utils::Signd(a * voxel_x + b * voxel_y + c * voxel_z + (d + t)) !=
-                    utils::Signd(a * voxel_x + b * voxel_y + c * voxel_z + (d - t)))
-                {
-                    // voxel lies between two points
-                    grid[length * width * z + length * y + x] = 1;
-                }
-            }
-        }
-    }
-}
 
 template <typename Discretizer>
 static void VoxelizeMesh(
@@ -1105,7 +1068,13 @@ void VoxelizePlane(
     const Eigen::Vector3d& min,
     const Eigen::Vector3d& max,
     double res,
-    std::vector<Eigen::Vector3d>& voxels);
+    std::vector<Eigen::Vector3d>& voxels)
+{
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> indices;
+    CreateIndexedPlaneMesh(a, b, c, d, min, max, vertices, indices);
+    VoxelizeMesh(vertices, indices, res, voxels);
+}
 
 /// \brief Voxelize a plane within a given bounding box using a specified voxel
 ///     grid origin
@@ -1115,7 +1084,13 @@ void VoxelizePlane(
     const Eigen::Vector3d& max,
     double res,
     const Eigen::Vector3d& voxel_origin,
-    std::vector<Eigen::Vector3d>& voxels);
+    std::vector<Eigen::Vector3d>& voxels)
+{
+    std::vector<Eigen::Vector3d> vertices;
+    std::vector<int> indices;
+    CreateIndexedPlaneMesh(a, b, c, d, min, max, vertices, indices);
+    VoxelizeMesh(vertices, indices, res, voxel_origin, voxels);
+}
 
 /// \brief Encloses a list of spheres with a set of voxels of a given size
 ///
