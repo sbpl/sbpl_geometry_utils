@@ -431,8 +431,8 @@ void CreateIndexedPlaneMesh(
     indices.push_back(2);
     for (size_t i = 3; i < vertices.size(); ++i) {
         indices.push_back(0);
-        indices.push_back(i - 1);
-        indices.push_back(i - 2);
+        indices.push_back(i- 1);
+        indices.push_back(i);
     }
 }
 
