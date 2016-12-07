@@ -27,8 +27,10 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //////////////////////////////////////////////////////////////////////////////
 
-#include <cmath>
 #include <sbpl_geometry_utils/interpolate.h>
+
+#include <cmath>
+#include <sbpl_geometry_utils/angles.h>
 #include <sbpl_geometry_utils/utils.h>
 
 namespace sbpl
@@ -103,17 +105,17 @@ bool InterpolatePath(
     }
 
     // check that min_limits and max_limits make sense, and normalize angles
-    if (!utils::NormalizeAnglesIntoRange(start_norm, min_limits, max_limits)) {
+    if (!angles::NormalizeAnglesIntoRange(start_norm, min_limits, max_limits)) {
         return false;
     }
-    if (!utils::NormalizeAnglesIntoRange(end_norm, min_limits, max_limits)) {
+    if (!angles::NormalizeAnglesIntoRange(end_norm, min_limits, max_limits)) {
         return false;
     }
 
     // determine the directions in which we should interpolate the angles
     std::vector<int> travel_dirs(dim, 0);
     for (unsigned i = 0; i < dim; i++) {
-        double angle_diff = utils::ShortestAngleDiff(end_norm[i], start_norm[i]);
+        double angle_diff = angles::ShortestAngleDiff(end_norm[i], start_norm[i]);
         if (continuous_joints[i]) {
             travel_dirs[i] = (int)utils::Signd(angle_diff);
         }
@@ -129,7 +131,7 @@ bool InterpolatePath(
 
     int max_iterations = 0;
     for (int i = 0; i < dim; i++) {
-        double angle_diff = utils::ShortestAngleDiff(end_norm[i], start_norm[i]);
+        double angle_diff = angles::ShortestAngleDiff(end_norm[i], start_norm[i]);
 
         double angle_dist;
         if (continuous_joints[i]) {
@@ -162,7 +164,7 @@ bool InterpolatePath(
     for (int c = 0; c < max_iterations; c++) {
         // inch all the joint angles towards the end
         for (unsigned i = 0; i < dim; i++) {
-            double anglediff = utils::ShortestAngleDiff(end_norm[i], curr_cfg[i]);
+            double anglediff = angles::ShortestAngleDiff(end_norm[i], curr_cfg[i]);
 
             if (fabs(anglediff) < inc[i]) {
                 // add the last little bit to reach the end for this joint angle

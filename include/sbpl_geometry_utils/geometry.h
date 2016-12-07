@@ -30,6 +30,7 @@
 #ifndef sbpl_geometry_geometry_h
 #define sbpl_geometry_geometry_h
 
+#include <sbpl_geometry_utils/angles.h>
 #include <sbpl_geometry_utils/bounding_spheres.h>
 #include <sbpl_geometry_utils/discretize.h>
 #include <sbpl_geometry_utils/interpolate.h>
