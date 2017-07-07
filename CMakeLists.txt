@@ -1,24 +1,16 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 2.8.12)
 project(sbpl_geometry_utils)
 
-find_package(catkin REQUIRED COMPONENTS geometry_msgs)
+find_package(catkin REQUIRED COMPONENTS cmake_modules geometry_msgs)
 
 # inspect for eigen include directories
-find_package(Eigen3)
-if (${EIGEN3_FOUND})
-    set(EIGEN_INCLUDES ${EIGEN3_INCLUDE_DIR})
-else()
-    find_package(Eigen REQUIRED)
-    set(EIGEN_INCLUDES ${Eigen_INCLUDE_DIRS})
-endif()
+find_package(Eigen)
 
 catkin_package(
     INCLUDE_DIRS include
     LIBRARIES sbpl_geometry_utils
     CATKIN_DEPENDS geometry_msgs
-    DEPENDS eigen)
-
-include_directories(include ${catkin_INCLUDE_DIRS} ${EIGEN_INCLUDES})
+    DEPENDS Eigen)
 
 set(CMAKE_BUILD_TYPE Release)
 
@@ -30,11 +22,17 @@ if (CMAKE_COMPILER_IS_GNUCXX)
     else()
         set(C11_FLAGS "-std=c++11")
     endif()
+elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    set(C11_FLAGS "-std=c++11")
 else()
-    message("Compiler is not g++. You're on your own for C++11 features")
+    message("You're on your own for C++11 features")
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${C11_FLAGS}")
+add_compile_options(${C11_FLAGS})
+
+include_directories(${Eigen_INCLUDE_DIRS})
+include_directories(${catkin_INCLUDE_DIRS})
+include_directories(include)
 
 add_library(
     sbpl_geometry_utils
@@ -46,7 +44,13 @@ add_library(
     src/mesh_utils.cpp)
 target_link_libraries(sbpl_geometry_utils ${catkin_LIBRARIES})
 
-install(TARGETS sbpl_geometry_utils
-        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})
+install(
+    TARGETS sbpl_geometry_utils
+    LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+    ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+    RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
-install(DIRECTORY include/sbpl_geometry_utils DESTINATION include FILES_MATCHING PATTERN "*.h")
+install(
+    DIRECTORY include/sbpl_geometry_utils
+    DESTINATION include
+    FILES_MATCHING PATTERN "*.h")
