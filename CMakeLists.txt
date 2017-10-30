@@ -30,8 +30,8 @@ endif()
 
 add_compile_options(${C11_FLAGS})
 
-include_directories(${Eigen_INCLUDE_DIRS})
-include_directories(${catkin_INCLUDE_DIRS})
+include_directories(SYSTEM ${Eigen_INCLUDE_DIRS})
+include_directories(SYSTEM ${catkin_INCLUDE_DIRS})
 include_directories(include)
 
 add_library(
